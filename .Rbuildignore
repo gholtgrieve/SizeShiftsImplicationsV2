@@ -8,3 +8,4 @@
 ^^\.*\\.Rproj$$
 ^figures$
 ^outputs$
+inst/publishedData
