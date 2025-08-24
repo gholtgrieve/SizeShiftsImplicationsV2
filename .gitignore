@@ -9,3 +9,5 @@ outputs/
 .Ruserdata
 .Rproj.user/
 *.Rproj
+data-raw
+figures
