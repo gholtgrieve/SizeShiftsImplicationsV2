@@ -4,3 +4,8 @@
 .httr-oauth
 .DS_Store
 .quarto
+outputs/
+.RData
+.Ruserdata
+.Rproj.user/
+*.Rproj
