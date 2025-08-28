@@ -17,6 +17,7 @@
 #'
 #' @return Invisible named list of results for each figure generated.
 #' @export
+
 make_figures <- function(
     figures    = "Kuskokwim",
     data,
@@ -29,9 +30,9 @@ make_figures <- function(
     tokens <- toupper(x)
 
     expand_one <- function(tok) {
-      if (grepl("^OHL", tok))  return(c("2","3","4","5","6","7"))  # Ohlberger group
-      if (grepl("^KUSK", tok)) return(c("A","B","C"))             # Kuskokwim group
-      if (tok %in% c("A","B","C")) return(tok)
+      if (grepl("^OHL", tok))  return(c("2","3","4","5","6","7"))      # Ohlberger group
+      if (grepl("^KUSK", tok)) return(c("A","B","C","D","E"))          # Kuskokwim group
+      if (tok %in% c("A","B","C","D","E")) return(tok)
       if (tok %in% c("2","3","4","5","6","7")) return(tok)
       character(0)
     }
@@ -42,7 +43,7 @@ make_figures <- function(
 
   wanted <- normalize_tokens(figures)
   if (length(wanted) == 0L) {
-    stop("No valid figures selected. Use 'Ohlberger', 'Kuskokwim', or specific codes like 'A','C','2','5'.")
+    stop("No valid figures selected. Use 'Ohlberger', 'Kuskokwim', or specific codes like 'A','C','E','2','5'.")
   }
 
   # ---- load/normalize the run into `run_obj` -----------------------------------
@@ -60,9 +61,11 @@ make_figures <- function(
   # ---- dispatch map ------------------------------------------------------------
   # All functions should accept (data = run_obj, output_dir = figure_dir)
   builders <- list(
-    A  = function() .make_Kusko_figure_A(data = run_obj, output_dir = figure_dir),
-    B  = function() .make_Kusko_figure_B(data = run_obj, output_dir = figure_dir),
-    C  = function() .make_Kusko_figure_C(data = run_obj, output_dir = figure_dir),
+    A   = function() .make_Kusko_figure_A(data = run_obj, output_dir = figure_dir),
+    B   = function() .make_Kusko_figure_B(data = run_obj, output_dir = figure_dir),
+    C   = function() .make_Kusko_figure_C(data = run_obj, output_dir = figure_dir),
+    D   = function() .make_Kusko_figure_D(data = run_obj, output_dir = figure_dir),
+    E   = function() .make_Kusko_figure_E(data = run_obj, output_dir = figure_dir),
     `2` = function() .make_Ohlberger_figure_2(data = run_obj, output_dir = figure_dir),
     `3` = function() .make_Ohlberger_figure_3(data = run_obj, output_dir = figure_dir),
     `4` = function() .make_Ohlberger_figure_4(data = run_obj, output_dir = figure_dir),

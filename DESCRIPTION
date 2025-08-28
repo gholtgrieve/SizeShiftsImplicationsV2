@@ -58,7 +58,10 @@ Imports:
     nlme,
     dlm,
     ggExtra,
-    withr (>= 2.5.0)
+    withr (>= 2.5.0),
+    future,
+    future.apply,
+    parallelly
 Suggests:
     testthat (>= 3.2.0),
     knitr,
