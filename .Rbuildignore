@@ -12,3 +12,4 @@ inst/publishedData
 ^outputs$
 ^inst/publishedData$
 ^figures$
+^LICENSE\.md$

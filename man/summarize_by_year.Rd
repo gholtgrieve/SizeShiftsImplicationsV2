@@ -7,13 +7,11 @@
 summarize_by_year(data, years = 50L)
 }
 \arguments{
-\item{data}{\code{ssi_run} object, path to saved \code{.rds}, or legacy list.}
+\item{data}{\code{ssi_run} object.}
 
-\item{years}{Integer or \code{NULL}. \strong{For \code{ssi_run} inputs, the function uses the
-most recent \code{years} (default \strong{50}) rows from each iteration.} If an
-iteration has fewer than \code{years} rows, the largest common window across all
-scenarios/iterations is used. For legacy inputs, \code{years} is ignored and the
-supplied \code{year_index} is used as-is.}
+\item{years}{Integer or \code{NULL}. The function uses the most recent \code{years}
+(default 50) rows from each iteration. If an iteration has fewer than
+\code{years} rows, the largest common window across all iterations is used.}
 }
 \value{
 A nested list \code{MeanByYear} with components:
@@ -25,13 +23,7 @@ is a named numeric vector with stats:
 }
 }
 \description{
-Accepts:
-\itemize{
-\item an \code{ssi_run} object from \code{run_scenarios()} (recommended),
-\item a character path to an \code{.rds} saved by \code{run_scenarios()}, or
-\item a legacy list with elements \code{obs_list}, \code{scen_names}, \code{iter_names},
-\code{year_index}, and \code{parameters} (with \code{nscen}, \code{niter}, \code{nyh}).
-}
+Accepts an \code{ssi_run} object from \code{run_scenarios()}.
 }
 \details{
 For each scenario and each year position, computes summary statistics

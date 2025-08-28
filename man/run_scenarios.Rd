@@ -7,43 +7,42 @@
 run_scenarios(
   scenarios,
   niter = 1000,
-  seed = "reproducable",
+  seed = "reproducible",
   params = "Ohlberger",
-  output_dir = paste0(here::here(), "/outputs"),
-  figure_dir = paste0(here::here(), "/figures")
+  output_dir = paste0(here::here(), "/outputs")
 )
 }
 \arguments{
-\item{scenarios}{Selector passed to \code{\link{select_scenarios}()}.
-Typically one of:
+\item{scenarios}{Selector passed to \code{\link[=select_scenarios]{select_scenarios()}}. One of:
 \itemize{
 \item \code{"all"} — run all allowed scenarios;
 \item a single dplyr-style filter \strong{string}, e.g.
 \code{"selectivity == 'unselective' & factorMSY \%in\% c(0.75, 1.50)"};
-\item a numeric vector of scenario IDs (e.g., \code{c(1, 12, 37)}).
+\item an integer vector of scenario IDs, e.g. \code{c(1, 12, 37)}.
 }
-See \code{\link{select_scenarios}()} for details on the selector syntax and
-built-in constraints.}
+See \code{\link[=select_scenarios]{select_scenarios()}} for details.}
 
-\item{niter}{Integer. Number of Monte Carlo iterations \emph{per scenario}.
-Default \code{1000}.}
+\item{niter}{Integer. Number of Monte Carlo iterations \strong{per scenario}. Default \code{1000}.}
 
-\item{seed}{Character. How to seed simulations across the scenario–iteration
-grid. Must be exactly \code{"reproducable"} (seeds are \code{1:(niter*nscen)})
-or \code{"random"} (seeds are sampled from \code{1:1000000}). Any other value
-triggers an error.}
+\item{seed}{Character. Seeding strategy across the scenario–iteration grid.
+Must be exactly \code{"reproducible"} (seeds are \code{1:(niter*nscen)}) or \code{"random"}
+(seeds are sampled from \code{1:1000000}). Any other value triggers an error.}
 
-\item{output_dir}{String. Intended output directory path (default:
-\code{here::here()}/\code{outputs}). \strong{Note:} The current implementation
-writes files to \code{file.path(here::here(), "out")} regardless of this value.}
+\item{params}{Either a \strong{named profile} (\code{"Ohlberger"} or \code{"Kuskokwim"}) that will be
+resolved via \code{\link[=resolve_profile]{resolve_profile()}}, or a fully-specified \strong{list} of parameter
+values to pass through to \code{\link[=build_config]{build_config()}}. Default \code{"Ohlberger"}.}
 
-\item{figure_dir}{String. Intended figure directory path (default:
-\code{here::here()}/\code{figures}). \strong{Note:} Not used by the current
-implementation.}
+\item{output_dir}{String. Directory where the \code{.rds} run artifact and other
+outputs will be written. Default \code{file.path(here::here(), "outputs")}.}
 }
 \value{
-No return value. Called for its side effects of running simulations and
-writing files to disk. Progress and timing information are printed to the console.
+An object of class \strong{\code{ssi_run}} with components:
+\itemize{
+\item \code{meta}: run metadata (timestamp, seeds, niter, nscen, dirs, profile);
+\item \code{scenarios}: the filtered scenario tibble that was run;
+\item \code{results}: nested per-scenario/per-iteration outputs (lists of lists).
+}
+A copy is also saved as an \code{.rds} under \code{output_dir}.
 }
 \description{
 High-level interface to run the simulation across a set of scenarios and
@@ -51,70 +50,36 @@ Monte Carlo iterations. This function selects which scenarios to run,
 seeds each run for reproducibility or randomness, executes the simulation,
 and saves outputs to disk.
 }
-\section{What this function does}{
-
-\itemize{
-\item Calls \code{\link{select_scenarios}()} with \code{enforce_constraints = TRUE}
-to determine which scenarios to run.
-\item Builds a scenario–iteration seed list based on \code{seed}.
-\item Iterates over scenarios and iterations, sourcing parameter values from
-\code{file.path(here::here(), "R_draft/parameters.R")} and calling
-\code{SizeShiftsImplicationsV2::run_model()}.
-\item Accumulates per-iteration outputs (e.g., SR parameters, time series, age/size
-structures) into nested lists.
-\item Saves artifacts (see below) into \code{file.path(here::here(), "out")}.
-}
-}
-
 \section{Files written}{
 
-Writing occurs under \code{file.path(here::here(), "out")} (directory is created
-if needed). The following files are produced, with a timestamp:
+Files are written under \code{output_dir} (created if needed):
 \itemize{
-\item \code{run_<timestamp>.Rdata} — workspace image via \code{save.image()}.
-\item \code{run_<timestamp>_parms.Rdata} — parameters list via \code{saveRDS()}.
-\item \code{run_<timestamp>_scen.xlsx} — scenario table via \code{write.xlsx()}.
+\item \verb{run_<timestamp>.rds} — serialized \code{ssi_run} object;
+\item \verb{run_<timestamp>_scen.xlsx} — scenario table (via \strong{openxlsx}).
 }
 }
 
-\section{Dependencies and expectations}{
+\section{Dependencies}{
 
-\itemize{
-\item Requires packages: \pkg{here}, \pkg{progress}; and an \code{write.xlsx()}
-provider (e.g., \pkg{openxlsx}).
-\item The file \code{R_draft/parameters.R} must exist under the project root
-returned by \code{here::here()} and evaluate to a parameter list used by
-\code{run_model()}.
-\item The working directory is set to \code{file.path(here::here(), "out")}
-near the end of execution (\code{setwd()}), which persists after the
-function returns.
-}
-}
-
-\section{Notes}{
-
-\itemize{
-\item This function can be computationally intensive (total runs =
-\code{niter * number_of_selected_scenarios}). A console time estimate is printed.
-\item A progress bar is initialized; if progress updates are desired, enable
-\code{pb\$tick()} within the inner loop.
-}
+Requires packages \strong{here}, \strong{progress}, and \strong{openxlsx} for file paths,
+progress bar, and Excel export (all imported at call sites with \code{pkg::fun()}).
 }
 
 \examples{
 \dontrun{
-## Run all allowed scenarios with few iterations and reproducible seeds
-run_scenarios("all", niter = 1000, seed = "reproducable")
+# All allowed scenarios, reproducible seeding
+run_scenarios("all", niter = 1000, seed = "reproducible")
 
-## Run only unselective-net scenarios at conservative/aggressive MSY, no DLM mgmt
+# Subset by filter
 sel <- "selectivity == 'unselective' & mgmt \%in\% c('smsy_goal','s_eq_goal') & factorMSY \%in\% c(0.75, 1.50)"
-run_scenarios(sel, niter = 1000, seed = "reproducable")
+run_scenarios(sel, niter = 1000, seed = "reproducible", params = "Ohlberger")
 
-## Run specific scenario IDs
-run_scenarios(c(1, 12, 37, 60), niter = 500, seed = "random")
+# Specific scenario IDs
+run_scenarios(c(1, 12, 37), niter = 500, seed = "random", params = "Ohlberger")
 }
 }
 \seealso{
-\code{\link{select_scenarios}()} for scenario selection;
-\code{\link{run_model}()} for the underlying single-simulation routine.
+\code{\link[=select_scenarios]{select_scenarios()}} for scenario selection,
+\code{\link[=run_model]{run_model()}} for the single-simulation routine, \code{\link[=build_config]{build_config()}} and
+\code{\link[=resolve_profile]{resolve_profile()}} for configuration.
 }

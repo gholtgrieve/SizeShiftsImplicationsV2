@@ -1,36 +1,67 @@
 Package: SizeShiftsImplicationsV2
-Title: What the Package Does (One Line, Title Case)
+Type: Package
+Title: Fishery management implications of demographic changes in Chinook salmon
 Version: 0.0.0.9000
 Authors@R: 
-    person("First", "Last", , "first.last@example.com", role = c("aut", "cre"))
-Description: What the package does (one paragraph).
-License: `use_mit_license()`, `use_gpl3_license()` or friends to pick a
-    license
+    c(person(given = "Gordon",
+             family = "Holtgrieve",
+             email = "gholtgrieve@gmail.com",
+             role = c("aut", "cre")))
+Description: Simulation and analysis framework for assessing fishery management
+    implications of demographic change in Pacific salmon. Implements an empirically 
+    based simulation (management strategy
+    evaluation, MSE) that propagates shifts in age, sex, and length
+    compositions through stock-recruit dynamics and harvest control rules.
+    Provides tools to select and run scenario grids, record outputs in a simple
+    'ssi_run' object, summarize trajectories (e.g., last-50-year means and
+    by-year quantiles), and reproduce the figures used in the associated study.
+    Management procedures include a time-invariant Ricker model (TRM),
+    yield-per-recruit (YPR), and a dynamic linear model (DLM) with time-varying
+    parameters. Performance metrics include long-term mean harvest, return, and
+    escapement; conservation risk indicators (e.g., probabilities that
+    recruitment > 0.5*Rmax and escapement > 0.5*S0); and the probability of
+    zero harvest. Plotting functions generate publication-quality figures (A-C,
+    2-7) with consistent labeling and color schemes. This package accompanies
+    Ohlberger, Schindler, and Staton (2025), "Accounting for salmon body size
+    declines in fishery management can reduce conservation risks" (Fish and
+    Fisheries, 26:113–130; <doi:10.1111/faf.12869>), and supports reproducible
+    research.
+License: GPL (>= 3)
 Encoding: UTF-8
+LazyData: true
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.2
 Depends: 
-    R (>= 3.5),
-    tidyverse
-Imports: 
-    data.table,
-    dlm,
-    dplyr,
-    forcats,
+    R (>= 4.1.0)
+Imports:
+    dplyr (>= 1.1.0),
+    tidyr (>= 1.3.0),
+    ggplot2 (>= 3.5.0),
+    forcats (>= 1.0.0),
+    readr (>= 2.1.0),
+    purrr (>= 1.0.0),
+    tibble (>= 3.2.0),
+    data.table (>= 1.15.0),
+    zoo (>= 1.8-12),
+    scales (>= 1.3.0),
+    rlang (>= 1.1.0),
+    here,
+    progress,
+    openxlsx,
+    stats,
+    magrittr,
+    tidyselect,
+    readxl,
     fs,
-    ggplot2,
     gsl,
     gtools,
-    here,
     nlme,
-    openxlsx,
-    progress,
-    purrr,
-    readr,
-    readxl,
-    rlang,
-    stats,
-    tibble,
-    tidyr,
-    tidyselect
-LazyData: true
+    dlm,
+    ggExtra
+Suggests:
+    testthat (>= 3.2.0),
+    knitr,
+    rmarkdown,
+    lintr,
+    sessioninfo
+Config/testthat/edition: 3

@@ -2,40 +2,36 @@
 % Please edit documentation in R/make_figures.R
 \name{make_figures}
 \alias{make_figures}
-\title{Wrapper to Generate Figures A, B, and C from Simulation Outputs}
+\title{Build Selected Figures from an \code{ssi_run}}
 \usage{
 make_figures(
-  figures = c("A", "B", "C"),
-  run = NULL,
-  timestamp = NULL,
-  selectivity_filter = "unselective",
-  data_dir = paste0(here::here(), "/outputs"),
-  figure_dir = paste0(here::here(), "/figures"),
-  colors = c("darkgray", "deepskyblue3", "orange")
+  figures = "Kuskokwim",
+  data,
+  figure_dir = file.path(here::here(), "figures")
 )
 }
 \arguments{
-\item{figures}{Character vector of figures to generate. Options: "A","B","C". Default: all.}
+\item{figures}{Character vector indicating what to build.
+Examples: \code{"Ohlberger"}, \code{"Kuskokwim"}, \code{c("A","C")}, \code{c("2","5")}.
+Defaults to \code{"Kuskokwim"}.}
 
-\item{run}{Either an \code{ssi_run} object (returned by \code{run_scenarios()}) or a path to its \code{.rds}. Optional.}
-
-\item{timestamp}{(Back-compat) Timestamp string used to find \verb{run_<timestamp>.rds} in \code{data_dir}.
-Accepts either \code{"YYYY-MM-DD_HH-MM-SS"} or \code{"YYYY-MM-DD HH-MM-SS"} (space will be normalized to underscore).}
-
-\item{selectivity_filter}{Character filter for selectivity type (default: "unselective").}
-
-\item{data_dir}{Directory containing saved \code{.rds} runs (default: \code{here()/outputs}).}
+\item{data}{Either an \code{ssi_run} object (from \code{\link[=run_scenarios]{run_scenarios()}}) \strong{or}
+a file path to a saved \code{.rds} containing an \code{ssi_run}.}
 
 \item{figure_dir}{Directory to save figures (default: \code{here()/figures}).}
-
-\item{colors}{Optional vector of colors for plotting.}
 }
 \value{
-A named list containing results for each figure generated.
+Invisible named list of results for each figure generated.
 }
 \description{
-This function loads model outputs and generates figure panels A, B, and/or C.
-You can pass either the in-memory run object returned by \code{run_scenarios()},
-a path to a saved \code{.rds} from \code{run_scenarios()}, or (for back-compat) a
-\code{timestamp} + \code{data_dir} pair to locate the saved \code{.rds}.
+Convenience wrapper to generate either the \strong{Ohlberger} figures (2–7),
+the \strong{Kuskokwim} figures (A–C), or a user-specified subset.
+}
+\details{
+\itemize{
+\item \code{"Ohlberger"} builds Figures \strong{2, 3, 4, 5, 6, 7}.
+\item \code{"Kuskokwim"} builds Figures \strong{A, B, C}.
+\item You can also pass explicit figure codes, e.g. \code{c("A","C")} or \code{c("2","5")}.
+(Case-insensitive; \code{"Figure5"} also works.)
+}
 }
