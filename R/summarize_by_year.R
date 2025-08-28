@@ -16,7 +16,8 @@
 #'     each scenario contains a list of length `ny` (years), where each element
 #'     is a named numeric vector with stats:
 #'     `Mean`, `SD`, `2.5%`, `5%`, `10%`, `25%`, `50%`, `75%`, `90%`, `95%`, `97.5%`.
-#' @export
+#' @keywords internal
+
 summarize_by_year <- function(data, years = 50L) {
   if (!inherits(data, "ssi_run")) {
     stop("`data` must be an 'ssi_run' object.")

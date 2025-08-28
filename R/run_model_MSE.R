@@ -7,8 +7,7 @@
 #' @param config List. List of parameter values
 #'
 #' @return A named list.
-#'
-#' @export
+#' @keywords internal
 
 run_model<-function(config) {
 

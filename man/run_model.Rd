@@ -17,3 +17,4 @@ This internal function runs a management strategy evaluation simulation
 using a specified parameter configuration and scenario. It generates
 escapement, harvest, recruitment, age composition, and size-at-age outputs.
 }
+\keyword{internal}

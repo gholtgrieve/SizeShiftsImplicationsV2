@@ -30,3 +30,4 @@ For each scenario and each year position, computes summary statistics
 (Mean, SD, and quantiles) across iterations for \code{obsEsc}, \code{obsHarv},
 and \code{obsRet}.
 }
+\keyword{internal}
