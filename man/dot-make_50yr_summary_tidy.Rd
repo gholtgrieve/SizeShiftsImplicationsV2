@@ -7,7 +7,7 @@
 .make_50yr_summary_tidy(summary_list, scen_df, statistic = "mean")
 }
 \arguments{
-\item{summary_list}{Output from \code{summarize_50_year_avg()}.}
+\item{summary_list}{Output from \code{.summarize_50_year_avg()}.}
 
 \item{scen_df}{Scenario metadata tibble (with scen column).}
 
@@ -17,7 +17,7 @@
 Tidy dataframe with per-scenario metrics.
 }
 \description{
-Converts list-of-lists from \code{summarize_50_year_avg()} into a tidy data.frame
+Converts list-of-lists from \code{.summarize_50_year_avg()} into a tidy data.frame
 joined with scenario metadata.
 }
 \keyword{internal}

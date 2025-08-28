@@ -11,7 +11,7 @@
 )
 }
 \arguments{
-\item{summary_list}{Output from \code{summarize_50_year_avg()}}
+\item{summary_list}{Output from \code{.summarize_50_year_avg()}}
 
 \item{scen_df}{Scenario metadata tibble with standardized labels and \code{scen}}
 
@@ -21,7 +21,7 @@
 Tidy dataframe with columns: scen, iter, escapement, harvest, trends, mgmt, factorMSY, selectivity
 }
 \description{
-Uses per-iteration 50y means from \code{summarize_50_year_avg()} for harvest/escapement.
+Uses per-iteration 50y means from \code{.summarize_50_year_avg()} for harvest/escapement.
 Keeps only scenarios matching \code{selectivity_filter}, and joins scenario metadata.
 }
 \keyword{internal}

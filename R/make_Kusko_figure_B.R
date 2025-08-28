@@ -18,7 +18,7 @@
   file_basename <- "FigureB"
 
   # 1) Summarize per-iteration 50y means for each scenario
-  summary_list <- summarize_50_year_avg(data)  # uses last 50y by default
+  summary_list <- .summarize_50_year_avg(data)  # uses last 50y by default
 
   # 2) Scenario metadata (standardize + stable IDs)
   scen_df <- standardize_scenario_labels(tibble::as_tibble(data$scenarios))
@@ -92,10 +92,10 @@
 
 #' Helper: Build per-iteration ellipse data for Figure B
 #'
-#' Uses per-iteration 50y means from `summarize_50_year_avg()` for harvest/escapement.
+#' Uses per-iteration 50y means from `.summarize_50_year_avg()` for harvest/escapement.
 #' Keeps only scenarios matching `selectivity_filter`, and joins scenario metadata.
 #'
-#' @param summary_list Output from `summarize_50_year_avg()`
+#' @param summary_list Output from `.summarize_50_year_avg()`
 #' @param scen_df Scenario metadata tibble with standardized labels and `scen`
 #' @param selectivity_filter Character selectivity label to include
 #' @return Tidy dataframe with columns: scen, iter, escapement, harvest, trends, mgmt, factorMSY, selectivity

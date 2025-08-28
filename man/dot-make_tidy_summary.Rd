@@ -7,7 +7,7 @@
 .make_tidy_summary(summary_list, scen_df, scen_names, summary_stats)
 }
 \arguments{
-\item{summary_list}{Output from \code{summarize_by_year()}.}
+\item{summary_list}{Output from \code{.summarize_by_year()}.}
 
 \item{scen_df}{Full scenario metadata.}
 
@@ -19,7 +19,7 @@
 Tidy data.frame with \code{scen}, \code{year}, \code{mean}, \code{ymin}, \code{ymax}, \code{label}, and scenario metadata.
 }
 \description{
-Converts list-of-lists summary output from \code{summarize_by_year()} into a single
+Converts list-of-lists summary output from \code{.summarize_by_year()} into a single
 tidy data frame for escapement and harvest, with ribbons and means.
 }
 \keyword{internal}

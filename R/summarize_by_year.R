@@ -18,7 +18,7 @@
 #'     `Mean`, `SD`, `2.5%`, `5%`, `10%`, `25%`, `50%`, `75%`, `90%`, `95%`, `97.5%`.
 #' @keywords internal
 
-summarize_by_year <- function(data, years = 50L) {
+.summarize_by_year <- function(data, years = 50L) {
   if (!inherits(data, "ssi_run")) {
     stop("`data` must be an 'ssi_run' object.")
   }

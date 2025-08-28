@@ -71,15 +71,14 @@ run_scenarios <- function(scenarios,
   scen  <- select_scenarios(selector = scenarios, enforce_constraints = TRUE)
   nscen <- nrow(scen)
 
-  ## seeds
+  # 1) CRN seeds: same seed for iteration k across ALL scenarios
   if (seed == "reproducible") {
-    seed.list <- seq_len(niter * nscen)
+    seeds_by_iter <- seq_len(niter)
   } else if (seed == "random") {
-    seed.list <- sample.int(1e6, niter * nscen, replace = TRUE)
+    seeds_by_iter <- sample.int(1e6, niter, replace = TRUE)
   } else {
-    stop("Please specify 'reproducible' or 'random' for seed.")
+    stop("seed must be 'reproducible' or 'random'")
   }
-  stopifnot(length(seed.list) == niter * nscen)
 
   message("time estimate: ", round((niter * nscen / 20) / 60, 2), " hours")
   pb <- progress::progress_bar$new(total = niter * nscen)
@@ -140,15 +139,13 @@ run_scenarios <- function(scenarios,
     impl_errors.list[[j]] <- vector("list", niter)
 
     for (k in seq_len(niter)) {
-      idx     <- (j - 1L) * niter + k
-      seednum <- seed.list[idx]
 
       # Build a complete, validated config for this run:
       cfg <- build_config(params  = profile,   # you can pass the profile object here
                           scen_row = scen_row,
                           j        = j,
                           k        = k,
-                          seednum  = seednum)
+                          seednum  = seeds.list[k])
 
       mod.out <- try(run_model(config = cfg), silent = TRUE)
       if (!inherits(mod.out, "try-error")) {

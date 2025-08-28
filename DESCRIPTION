@@ -57,7 +57,8 @@ Imports:
     gtools,
     nlme,
     dlm,
-    ggExtra
+    ggExtra,
+    withr (>= 2.5.0)
 Suggests:
     testthat (>= 3.2.0),
     knitr,

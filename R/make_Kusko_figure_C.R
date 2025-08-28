@@ -3,7 +3,7 @@
 #'
 #' Accepts an `ssi_run` object from `run_scenarios()`.
 #'
-#' Internally calls `summarize_by_year()` (which defaults to the last 50 years
+#' Internally calls `.summarize_by_year()` (which defaults to the last 50 years
 #' for `ssi_run` inputs). Produces ribbons for central intervals and overlays a
 #' smoothed (5-year rolling mean) probability of zero harvest on the secondary axis.
 #'
@@ -27,7 +27,7 @@
   if (!dir.exists(output_dir)) dir.create(output_dir, recursive = TRUE)
 
   # Summarize and prep metadata
-  summary_list <- summarize_by_year(data)
+  summary_list <- .summarize_by_year(data)
   obs_list <- data$results$obs
   scen_df_all <- standardize_scenario_labels(tibble::as_tibble(data$scenarios))
 
@@ -150,10 +150,10 @@
 
 #' Helper: Tidy simulation summaries for plotting
 #'
-#' Converts list-of-lists summary output from `summarize_by_year()` into a single
+#' Converts list-of-lists summary output from `.summarize_by_year()` into a single
 #' tidy data frame for escapement and harvest, with ribbons and means.
 #'
-#' @param summary_list Output from `summarize_by_year()`.
+#' @param summary_list Output from `.summarize_by_year()`.
 #' @param scen_df Full scenario metadata.
 #' @param scen_names Vector of scenario labels.
 #' @param summary_stats Named vector mapping new names to original stats (e.g., mean = "Mean").

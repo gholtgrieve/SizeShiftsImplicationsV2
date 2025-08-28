@@ -21,7 +21,7 @@
   file_basename <- "FigureA"
 
   # Summarize 50-year averages
-  summary_list <- summarize_50_year_avg(data)
+  summary_list <- .summarize_50_year_avg(data)
 
   # Scenario metadata
   scen_df <- standardize_scenario_labels(tibble::as_tibble(data$scenarios))
@@ -91,10 +91,10 @@
 
 #' Helper: Tidy 50-year summaries for plotting (harvest, escapement, return)
 #'
-#' Converts list-of-lists from `summarize_50_year_avg()` into a tidy data.frame
+#' Converts list-of-lists from `.summarize_50_year_avg()` into a tidy data.frame
 #' joined with scenario metadata.
 #'
-#' @param summary_list Output from `summarize_50_year_avg()`.
+#' @param summary_list Output from `.summarize_50_year_avg()`.
 #' @param scen_df Scenario metadata tibble (with scen column).
 #' @param statistic Which statistic to use: "mean" or "median".
 #' @return Tidy dataframe with per-scenario metrics.
