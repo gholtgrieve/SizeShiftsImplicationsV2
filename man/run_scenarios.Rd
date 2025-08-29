@@ -15,36 +15,22 @@ run_scenarios(
 )
 }
 \arguments{
-\item{scenarios}{Selector passed to \code{\link[=select_scenarios]{select_scenarios()}}. One of:
-\itemize{
-\item \code{"all"} — run all allowed scenarios;
-\item a single dplyr-style filter \strong{string}, e.g.
-\code{"selectivity == 'unselective' & factorMSY \%in\% c(0.75, 1.50)"};
-\item an integer vector of scenario IDs, e.g. \code{c(1, 12, 37)}.
-}
-See \code{\link[=select_scenarios]{select_scenarios()}} for details.}
+\item{scenarios}{See \code{\link[=select_scenarios]{select_scenarios()}} (e.g., "all", filter string, or IDs).}
 
-\item{niter}{Integer. Number of Monte Carlo iterations \strong{per scenario}. Default \code{1000}.}
+\item{niter}{Integer. Iterations per scenario. Default 1000.}
 
-\item{seed}{Character. \code{"reproducible"} (iteration seeds = \code{1:niter}, shared across scenarios)
-or \code{"random"} (iteration seeds sampled from \code{1:1e6}, shared across scenarios). Any other value errors.}
+\item{seed}{"reproducible" (1:niter) or "random" (sampled seeds).}
 
-\item{params}{Either a \strong{named profile} (\code{"Ohlberger"} or \code{"Kuskokwim"}) for \code{\link[=resolve_profile]{resolve_profile()}},
-or a fully-specified \strong{list} passed to \code{\link[=build_config]{build_config()}}. Default \code{"Ohlberger"}.}
+\item{params}{Profile name ("Ohlberger","Kuskokwim") or full list for \code{\link[=build_config]{build_config()}}.}
 
-\item{output_dir}{String. Directory where outputs are written. Default \code{file.path(here::here(), "outputs")}.}
+\item{output_dir}{Directory to write outputs (default: here()/outputs).}
 
-\item{parallel}{Logical. Use parallel workers for iterations? Default \code{TRUE}.}
+\item{parallel}{Logical. Run scenarios in parallel (one worker per scenario).}
 
-\item{workers}{Integer or \code{NULL}. Number of parallel workers if \code{parallel = TRUE}.
-Default: \code{min(parallelly::availableCores(), niter)}.}
-}
-\value{
-An \strong{\code{ssi_run}} object; also saved as \verb{run_<timestamp>.rds} under \code{output_dir}.
+\item{workers}{Integer or NULL. Number of workers; default auto-detect.}
 }
 \description{
 High-level interface to run the simulation across a set of scenarios and
-Monte Carlo iterations. This function selects which scenarios to run,
-seeds each run for reproducibility or randomness, executes the simulation,
-and saves outputs to disk.
+Monte Carlo iterations. Selects scenarios, seeds iterations (CRN across
+scenarios), runs the model (optionally in parallel), and saves outputs.
 }
