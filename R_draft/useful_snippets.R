@@ -32,9 +32,9 @@ find_in_pkg <- function(pattern, dirs = c("R","tests","vignettes","inst","src"),
   }
 }
 
-find_in_pkg("resolve_profile")  # change pattern as needed
+find_in_pkg("select_scenarios")  # change pattern as needed
 
 #small test run
 out <- run_scenarios("Ohlberger", params = "Ohlberger",
-                     niter = 10, seed = "reproducible",
-                     parallel = FALSE)
+                     niter = 5, seed = "reproducible",
+                     parallel = TRUE, workers = 5)

@@ -197,7 +197,7 @@ run_model <- function(config) {
     ##----------------------------------## generate recruits by brood year
     if (sim_recruits == "spawners") {
       sr <- withr::with_seed(seednum + 500L + y,
-                             SizeShiftsImplicationsV2::ricker(
+                             .calc_ricker(
                                spawn = PopDat$Esc[y], sigma = procerr,
                                alpha = alpha, beta = beta, rho = rho,
                                last.eps = ifelse(y == 1, 0, PopDat$eps[y-1])
@@ -208,16 +208,16 @@ run_model <- function(config) {
 
     ##----------------------------------## alternative reproductive units
     if (sim_recruits != "spawners") {
-      age_comp_y <- SizeShiftsImplicationsV2::agecomp(
+      age_comp_y <- .calc_agecomp(
         ages, round(PopDat$Esc[y] * (1 - propfemale[y])), meanage[y] - agediff/2, sdage
       )
       sizes_y <- rep(meanSaA[y,], prop.table(age_comp_y) * PopDat$Esc[y])
 
       if (sim_recruits == "fecundity") {
-        fecundity_total <- round(sum(exp(SizeShiftsImplicationsV2::reprod_output(sizes_y, allometry)[[1]])))
+        fecundity_total <- round(sum(exp(.calc_reprod_output(sizes_y, allometry)[[1]])))
         if (ricker_type == "const_beta") {
           sr <- withr::with_seed(seednum + 520L + y,
-                                 SizeShiftsImplicationsV2::ricker(
+                                 .calc_ricker(
                                    spawn = fecundity_total, sigma = procerr,
                                    alpha = alpha_fec, beta = beta_fec, rho = rho,
                                    last.eps = ifelse(y == 1, 0, PopDat$eps[y-1])
@@ -228,10 +228,10 @@ run_model <- function(config) {
       }
 
       if (sim_recruits == "eggmass") {
-        eggmass_total <- round(sum(exp(SizeShiftsImplicationsV2::reprod_output(sizes_y, allometry)[[2]])))
+        eggmass_total <- round(sum(exp(.calc_reprod_output(sizes_y, allometry)[[2]])))
         if (ricker_type == "const_beta") {
           sr <- withr::with_seed(seednum + 521L + y,
-                                 SizeShiftsImplicationsV2::ricker(
+                                 .calc_ricker(
                                    spawn = eggmass_total, sigma = procerr,
                                    alpha = alpha_egg, beta = beta_egg, rho = rho,
                                    last.eps = ifelse(y == 1, 0, PopDat$eps[y-1])
@@ -249,13 +249,13 @@ run_model <- function(config) {
 
     ##-------------------## generate sex-specific recruit age compositions
     age_comp[y, , 1] <- withr::with_seed(seednum + 530L + y,
-                                         SizeShiftsImplicationsV2::agecomp(
+                                         .calc_agecomp(
                                            ages, round(PopDat$Rec[y] * (1 - propfemale[y])),
                                            meanage[y] - agediff/2, sdage
                                          )
     )
     age_comp[y, , 2] <- withr::with_seed(seednum + 531L + y,
-                                         SizeShiftsImplicationsV2::agecomp(
+                                         .calc_agecomp(
                                            ages, round(PopDat$Rec[y] * propfemale[y]),
                                            meanage[y] + agediff/2, sdage
                                          )
@@ -358,7 +358,7 @@ run_model <- function(config) {
 
       ## apply selectivity
       selectivities_by_age[y, ] <- withr::with_seed(seednum + 6400L + y,
-                                                    SizeShiftsImplicationsV2::selectivity(meanSaA[y, ], maxsel, sdsel)
+                                                    .calc_selectivity(meanSaA[y, ], maxsel, sdsel)
       )
       select <- rep(selectivities_by_age[y, ], return_by_age)
 
@@ -387,7 +387,7 @@ run_model <- function(config) {
       ##================================================## generate recruits
       if (sim_recruits == "spawners") {
         sr <- withr::with_seed(seednum + 6600L + y,
-                               SizeShiftsImplicationsV2::ricker(
+                               .calc_ricker(
                                  spawn = PopDat$Esc[y], sigma = procerr,
                                  alpha = alpha, beta = beta, rho = rho,
                                  last.eps = ifelse(y == 1, 0, PopDat$eps[y-1])
@@ -406,10 +406,10 @@ run_model <- function(config) {
         sizes_y <- sizes_y[!is.na(sizes_y)]
 
         if (sim_recruits == "fecundity") {
-          fecundity_total <- round(sum(exp(SizeShiftsImplicationsV2::reprod_output(sizes_y, allometry)[[1]])))
+          fecundity_total <- round(sum(exp(.calc_reprod_output(sizes_y, allometry)[[1]])))
           if (ricker_type == "const_beta") {
             sr <- withr::with_seed(seednum + 6610L + y,
-                                   SizeShiftsImplicationsV2::ricker(
+                                   .calc_ricker(
                                      spawn = fecundity_total, sigma = procerr,
                                      alpha = alpha_fec, beta = beta_fec, rho = rho,
                                      last.eps = ifelse(y == 1, 0, PopDat$eps[y-1])
@@ -420,10 +420,10 @@ run_model <- function(config) {
         }
 
         if (sim_recruits == "eggmass") {
-          eggmass_total <- round(sum(exp(SizeShiftsImplicationsV2::reprod_output(sizes_y, allometry)[[2]])))
+          eggmass_total <- round(sum(exp(.calc_reprod_output(sizes_y, allometry)[[2]])))
           if (ricker_type == "const_beta") {
             sr <- withr::with_seed(seednum + 6620L + y,
-                                   SizeShiftsImplicationsV2::ricker(
+                                   .calc_ricker(
                                      spawn = eggmass_total, sigma = procerr,
                                      alpha = alpha_egg, beta = beta_egg, rho = rho,
                                      last.eps = ifelse(y == 1, 0, PopDat$eps[y-1])
@@ -441,13 +441,13 @@ run_model <- function(config) {
 
       ##--------------------## generate sex-specific recruit age composition
       age_comp[y, , 1] <- withr::with_seed(seednum + 6700L + y,
-                                           SizeShiftsImplicationsV2::agecomp(
+                                           .calc_agecomp(
                                              ages, round(PopDat$Rec[y] * (1 - propfemale[y])),
                                              meanage[y] - agediff/2, sdage
                                            )
       )
       age_comp[y, , 2] <- withr::with_seed(seednum + 6710L + y,
-                                           SizeShiftsImplicationsV2::agecomp(
+                                           .calc_agecomp(
                                              ages, round(PopDat$Rec[y] * propfemale[y]),
                                              meanage[y] + agediff/2, sdage
                                            )
@@ -565,9 +565,9 @@ run_model <- function(config) {
     if (harvmgmt %in% c("smsy_dlm_goal","umsy_dlm_goal")) {
       dataDLM <- dplyr::select(dataObs, Rec = recRec, Esc = obsEsc)
       nrd <- dim(dataDLM)[1]
-      if (var == "alpha") mod_dlm <- suppressWarnings(SizeShiftsImplicationsV2::DLMfit(data = dataDLM, var_alpha = TRUE,  var_beta = FALSE))
-      if (var == "beta")  mod_dlm <- suppressWarnings(SizeShiftsImplicationsV2::DLMfit(data = dataDLM, var_alpha = FALSE, var_beta = TRUE))
-      if (var == "both")  mod_dlm <- suppressWarnings(SizeShiftsImplicationsV2::DLMfit(data = dataDLM, var_alpha = TRUE,  var_beta = TRUE))
+      if (var == "alpha") mod_dlm <- suppressWarnings(.calc_DLMfit(data = dataDLM, var_alpha = TRUE,  var_beta = FALSE))
+      if (var == "beta")  mod_dlm <- suppressWarnings(.calc_DLMfit(data = dataDLM, var_alpha = FALSE, var_beta = TRUE))
+      if (var == "both")  mod_dlm <- suppressWarnings(.calc_DLMfit(data = dataDLM, var_alpha = TRUE,  var_beta = TRUE))
       sig_dlm <- mod_dlm$sigma
       log_a_dlm <- mod_dlm$results$alpha_y
       a_dlm <- exp(log_a_dlm)
@@ -621,12 +621,12 @@ run_model <- function(config) {
       av_p_ret_by_age <- round(colMeans(ret_by_age_prop[yrs_averaged, ], na.rm = TRUE), 4)
       av_p_ret_by_age[is.na(av_p_ret_by_age)] <- 0
 
-      if (sim_recruits == "fecundity") av_rep_out_by_age <- round(exp(SizeShiftsImplicationsV2::reprod_output(av_mean_SaAs, allometry)[[1]]) * av_propF_by_age)
-      if (sim_recruits == "eggmass")   av_rep_out_by_age <- round(exp(SizeShiftsImplicationsV2::reprod_output(av_mean_SaAs, allometry)[[2]]) * av_propF_by_age)
+      if (sim_recruits == "fecundity") av_rep_out_by_age <- round(exp(.calc_reprod_output(av_mean_SaAs, allometry)[[1]]) * av_propF_by_age)
+      if (sim_recruits == "eggmass")   av_rep_out_by_age <- round(exp(.calc_reprod_output(av_mean_SaAs, allometry)[[2]]) * av_propF_by_age)
 
       ## selectivity by age (may be stochastic; seed for alignment)
       age_selectivity <- withr::with_seed(seednum + 7400L,
-                                          SizeShiftsImplicationsV2::selectivity(av_mean_SaAs, maxsel, sdsel)
+                                          .calc_selectivity(av_mean_SaAs, maxsel, sdsel)
       )
       age_selectivity <- age_selectivity / max(age_selectivity)
 
@@ -742,14 +742,14 @@ run_model <- function(config) {
     sizes_y <- NA
     for (a in 1:nage) {
       if (esc_by_age_F[y, a] > 0) { size_new <- mean_SaAs[y, a] } else { size_new <- NA }
-      rep_out_per_cap <- SizeShiftsImplicationsV2::reprod_output(size_new, allometry)
+      rep_out_per_cap <- .calc_reprod_output(size_new, allometry)
       fec_by_age[y, a]  <- sum(rep(exp(rep_out_per_cap[[1]]), esc_by_age_F[y, a]))
       eggm_by_age[y, a] <- sum(rep(exp(rep_out_per_cap[[2]]), esc_by_age_F[y, a]))
       sizes_y <- c(sizes_y, rep(size_new, esc_by_age_F[y, a]))
     }
     sizes_y <- sizes_y[!is.na(sizes_y)]
-    potential[y, 1] <- sum(exp(SizeShiftsImplicationsV2::reprod_output(sizes_y, allometry)[[1]]))
-    potential[y, 2] <- sum(exp(SizeShiftsImplicationsV2::reprod_output(sizes_y, allometry)[[2]]))
+    potential[y, 1] <- sum(exp(.calc_reprod_output(sizes_y, allometry)[[1]]))
+    potential[y, 2] <- sum(exp(.calc_reprod_output(sizes_y, allometry)[[2]]))
     potential[y, 3] <- potential[y, 1] / sum(esc_by_age_F[y, ]) ## females
     potential[y, 4] <- potential[y, 2] / sum(esc_by_age_F[y, ]) ## females
     potential[y, 5] <- potential[y, 1] / sum(esc_by_age[y, ])   ## all spawners

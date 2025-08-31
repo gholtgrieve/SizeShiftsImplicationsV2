@@ -21,7 +21,7 @@
 #' @keywords internal
 #' @export
 
-selectivity <- function(size, meshsize, s) {
+.calc_selectivity <- function(size, meshsize, s) {
 
   t <- 1.920
   h <- 0.622

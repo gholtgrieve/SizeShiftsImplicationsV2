@@ -15,7 +15,7 @@ run_scenarios(
 )
 }
 \arguments{
-\item{scenarios}{See \code{\link[=select_scenarios]{select_scenarios()}} (e.g., "all", filter string, or IDs).}
+\item{scenarios}{See \code{\link[=.select_scenarios]{.select_scenarios()}} (e.g., "all", filter string, or IDs).}
 
 \item{niter}{Integer. Iterations per scenario. Default 1000.}
 

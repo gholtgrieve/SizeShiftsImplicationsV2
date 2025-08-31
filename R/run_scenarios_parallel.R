@@ -4,7 +4,7 @@
 #' Monte Carlo iterations. Selects scenarios, seeds iterations (CRN across
 #' scenarios), runs the model (optionally in parallel), and saves outputs.
 #'
-#' @param scenarios See [select_scenarios()] (e.g., "all", filter string, or IDs).
+#' @param scenarios See [.select_scenarios()] (e.g., "all", filter string, or IDs).
 #' @param niter Integer. Iterations per scenario. Default 1000.
 #' @param seed "reproducible" (1:niter) or "random" (sampled seeds).
 #' @param params Profile name ("Ohlberger","Kuskokwim") or full list for [build_config()].
@@ -21,7 +21,7 @@ run_scenarios <- function(scenarios,
                           workers    = NULL) {
 
   ## --- Select scenarios
-  scen  <- select_scenarios(selector = scenarios, enforce_constraints = TRUE)
+  scen  <- .select_scenarios(selector = scenarios, enforce_constraints = TRUE)
   nscen <- nrow(scen)
   if (nscen == 0L) stop("No scenarios selected.")
 

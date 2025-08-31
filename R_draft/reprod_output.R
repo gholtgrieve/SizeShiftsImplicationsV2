@@ -28,7 +28,7 @@
 #' @keywords internal
 #' @export
 
-reprod_output <- function(size, allometry) {
+.calc_reprod_output <- function(size, allometry) {
 
   size_ref <- allometry[names(allometry) == "size_ref"]
 

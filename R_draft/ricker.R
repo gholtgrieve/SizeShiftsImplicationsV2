@@ -26,7 +26,7 @@
 #' @export
 
 
-ricker <- function(spawn, sigma, alpha, beta, rho, last.eps) {
+.calc_ricker <- function(spawn, sigma, alpha, beta, rho, last.eps) {
 
   ## normal random error with bias correction for the mean
   delta <- rnorm(1, mean = -(sigma^2)/2, sd = sigma)

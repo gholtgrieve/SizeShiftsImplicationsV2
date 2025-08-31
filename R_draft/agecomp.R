@@ -19,7 +19,7 @@
 #' @export
 
 
-agecomp <- function(ages, recruits, meanage, sdage) {
+.calc_agecomp <- function(ages, recruits, meanage, sdage) {
 
   ## probabilities by age given mean age
   probs_a <- dnorm(ages, meanage, sdage)

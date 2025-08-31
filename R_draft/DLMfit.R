@@ -29,7 +29,7 @@
 #' @keywords internal
 #' @export
 
-DLMfit <- function(data, var_alpha, var_beta) {
+.calc_DLMfit <- function(data, var_alpha, var_beta) {
 
   lnRS <- log(data$Rec / data$Esc)
 
