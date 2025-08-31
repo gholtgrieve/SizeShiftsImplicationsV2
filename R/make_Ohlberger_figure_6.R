@@ -51,7 +51,7 @@
 
   # ---- scenarios ---------------------------------------------------------------
   scen <- tibble::as_tibble(data$scenarios)
-  scen <- standardize_scenario_labels(scen)
+  scen <- .standardize_scenario_labels(scen)
 
   # attach stable key matching nested results
   if ("scen_num" %in% names(scen)) {
@@ -139,7 +139,7 @@
   if (!nrow(df_plot)) stop("No paired iteration-wise differences computed for Figure 6.")
 
   df <- df_plot |>
-    standardize_scenario_labels() |>
+    .standardize_scenario_labels() |>
     dplyr::filter(.data$mgmt %in% c("YPR", "DLM")) |>
     dplyr::mutate(mgmt = factor(.data$mgmt, levels = c("YPR", "DLM"))) |>
     droplevels()

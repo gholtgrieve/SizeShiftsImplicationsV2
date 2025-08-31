@@ -50,7 +50,7 @@
 
   # ---- scenarios (standardize, filter to continued trends & base-case MSY) ----
   scen_df <- tibble::as_tibble(data$scenarios)
-  scen_df <- standardize_scenario_labels(scen_df)
+  scen_df <- .standardize_scenario_labels(scen_df)
 
   # attach stable key matching results lists
   if ("scen_num" %in% names(scen_df)) {
@@ -140,7 +140,7 @@
   if (!nrow(df_plot)) stop("No paired differences computed for Figure 5.")
 
   df_plot <- df_plot |>
-    standardize_scenario_labels() |>
+    .standardize_scenario_labels() |>
     dplyr::mutate(
       # keep only the two alternatives for this figure
       mgmt = factor(.data$mgmt, levels = c("YPR", "DLM"))

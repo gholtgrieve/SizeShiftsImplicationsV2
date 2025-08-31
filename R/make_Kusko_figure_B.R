@@ -21,7 +21,7 @@
   summary_list <- .summarize_50_year_avg(data)  # uses last 50y by default
 
   # 2) Scenario metadata (standardize + stable IDs)
-  scen_df <- standardize_scenario_labels(tibble::as_tibble(data$scenarios))
+  scen_df <- .standardize_scenario_labels(tibble::as_tibble(data$scenarios))
   scen_df$scen <- paste0("scenario_", seq_len(nrow(scen_df)))
 
   # 3) Build tidy per-iteration dataset for ellipses
@@ -130,5 +130,5 @@
 
   df <- dplyr::bind_rows(df_list)
   # idempotent standardization post-join (keeps factor levels stable)
-  standardize_scenario_labels(df)
+  .standardize_scenario_labels(df)
 }

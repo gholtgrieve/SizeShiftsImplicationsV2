@@ -27,7 +27,7 @@
 #'   `data$results$sr_sim` (per-iteration Ricker parameter fits).
 #' - Window is the **last `nyh` rows** per iteration (typically 50).
 #' - Scenario labels and factor orders are standardized via
-#'   `standardize_scenario_labels()`.
+#'   `.standardize_scenario_labels()`.
 #'
 #' @section Computation:
 #' For each scenario \eqn{j} and iteration \eqn{k}, over the last `nyh` years:

@@ -21,7 +21,7 @@
 #' - For each scenario we identify the **TRM reference** (same trends,
 #'   selectivity, and factorMSY) and compute iteration-wise % differences
 #'   for YPR/DLM vs TRM.
-#' - Scenario labels are standardized via `standardize_scenario_labels()`.
+#' - Scenario labels are standardized via `.standardize_scenario_labels()`.
 #'
 #' @section Computation:
 #' 1. For each scenario/iteration, compute mean run size over the last `nyh` years:
@@ -66,7 +66,7 @@
     scen_df$scen_key <- if (!is.null(obs_names) && length(obs_names) == nrow(scen_df)) obs_names else paste0("scenario_", seq_len(nrow(scen_df)))
   }
   # standardize labels/orders
-  scen_df <- standardize_scenario_labels(scen_df)
+  scen_df <- .standardize_scenario_labels(scen_df)
 
   # keep base-case factorMSY if present (published Fig 4 used MSY only)
   if ("factorMSY" %in% names(scen_df)) {

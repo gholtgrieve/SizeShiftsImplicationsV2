@@ -24,7 +24,7 @@
   summary_list <- .summarize_50_year_avg(data)
 
   # Scenario metadata
-  scen_df <- standardize_scenario_labels(tibble::as_tibble(data$scenarios))
+  scen_df <- .standardize_scenario_labels(tibble::as_tibble(data$scenarios))
   scen_df$scen <- paste0("scenario_", seq_len(nrow(scen_df)))
 
   # Build tidy dataframe

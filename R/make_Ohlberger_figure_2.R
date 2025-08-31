@@ -21,7 +21,7 @@
 #'   `seq(nyi + 20L, ny, by = goalfreq)`. The figure uses the **first review at
 #'   or after** calendar year `nyi + nyh` (i.e., the first post-historical review).
 #' - Scenario labels and factor orders are standardized via
-#'   `standardize_scenario_labels()`.
+#'   `.standardize_scenario_labels()`.
 #'
 #' @section Computation:
 #' 1. Identify the review year index at/after `nyi + nyh`.

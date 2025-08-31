@@ -52,7 +52,7 @@
 
   # --- scenario frame ----------------------------------------------------------
   scen <- tibble::as_tibble(data$scenarios)
-  scen <- standardize_scenario_labels(scen)
+  scen <- .standardize_scenario_labels(scen)
 
   # stable key to reach nested lists
   if ("scen_num" %in% names(scen)) {

@@ -29,7 +29,7 @@
   # Summarize and prep metadata
   summary_list <- .summarize_by_year(data)
   obs_list <- data$results$obs
-  scen_df_all <- standardize_scenario_labels(tibble::as_tibble(data$scenarios))
+  scen_df_all <- .standardize_scenario_labels(tibble::as_tibble(data$scenarios))
 
   if (!"scen_num" %in% names(scen_df_all)) {
     scen_df_all$scen_num <- seq_len(length(obs_list))
