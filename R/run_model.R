@@ -196,12 +196,10 @@ run_model <- function(config) {
 
     ##----------------------------------## generate recruits by brood year
     if (sim_recruits == "spawners") {
-      sr <- withr::with_seed(seednum + 500L + y,
-                             .calc_ricker(
-                               spawn = PopDat$Esc[y], sigma = procerr,
-                               alpha = alpha, beta = beta, rho = rho,
-                               last.eps = ifelse(y == 1, 0, PopDat$eps[y-1])
-                             )
+      sr <- .calc_ricker(spawn = PopDat$Esc[y], sigma = procerr,
+                        alpha = alpha, beta = beta, rho = rho,
+                        last.eps = ifelse(y == 1, 0, PopDat$eps[y-1]),
+                        seed = seednum + 500L + y
       )
       PopDat$RepOut[y] <- PopDat$Esc[y]
     }
@@ -209,19 +207,20 @@ run_model <- function(config) {
     ##----------------------------------## alternative reproductive units
     if (sim_recruits != "spawners") {
       age_comp_y <- .calc_agecomp(
-        ages, round(PopDat$Esc[y] * (1 - propfemale[y])), meanage[y] - agediff/2, sdage
+        ages = ages, recruits = round(PopDat$Esc[y] * (1 - propfemale[y])),
+        meanage = meanage[y] - agediff / 2, sdage = sdage,
+        seed = seednum + 515L + y
       )
       sizes_y <- rep(meanSaA[y,], prop.table(age_comp_y) * PopDat$Esc[y])
 
       if (sim_recruits == "fecundity") {
         fecundity_total <- round(sum(exp(.calc_reprod_output(sizes_y, allometry)[[1]])))
         if (ricker_type == "const_beta") {
-          sr <- withr::with_seed(seednum + 520L + y,
-                                 .calc_ricker(
-                                   spawn = fecundity_total, sigma = procerr,
-                                   alpha = alpha_fec, beta = beta_fec, rho = rho,
-                                   last.eps = ifelse(y == 1, 0, PopDat$eps[y-1])
-                                 )
+          sr <- .calc_ricker(
+                            spawn = fecundity_total, sigma = procerr,
+                            alpha = alpha_fec, beta = beta_fec, rho = rho,
+                            last.eps = ifelse(y == 1, 0, PopDat$eps[y-1]),
+                            seed = seednum + 520L + y
           )
         }
         PopDat$RepOut[y] <- fecundity_total
@@ -230,12 +229,11 @@ run_model <- function(config) {
       if (sim_recruits == "eggmass") {
         eggmass_total <- round(sum(exp(.calc_reprod_output(sizes_y, allometry)[[2]])))
         if (ricker_type == "const_beta") {
-          sr <- withr::with_seed(seednum + 521L + y,
-                                 .calc_ricker(
-                                   spawn = eggmass_total, sigma = procerr,
-                                   alpha = alpha_egg, beta = beta_egg, rho = rho,
-                                   last.eps = ifelse(y == 1, 0, PopDat$eps[y-1])
-                                 )
+          sr <- .calc_ricker(
+                            spawn = eggmass_total, sigma = procerr,
+                            alpha = alpha_egg, beta = beta_egg, rho = rho,
+                            last.eps = ifelse(y == 1, 0, PopDat$eps[y-1]),
+                            seed = seednum + 521L + y
           )
         }
         PopDat$RepOut[y] <- eggmass_total
@@ -248,17 +246,15 @@ run_model <- function(config) {
     PopDat$eps[y] <- round(sr$eps, 5)
 
     ##-------------------## generate sex-specific recruit age compositions
-    age_comp[y, , 1] <- withr::with_seed(seednum + 530L + y,
-                                         .calc_agecomp(
-                                           ages, round(PopDat$Rec[y] * (1 - propfemale[y])),
-                                           meanage[y] - agediff/2, sdage
-                                         )
+    age_comp[y, , 1] <- .calc_agecomp(
+                                     ages, round(PopDat$Rec[y] * (1 - propfemale[y])),
+                                     meanage[y] - agediff/2, sdage,
+                                     seed = seednum + 530L + y
     )
-    age_comp[y, , 2] <- withr::with_seed(seednum + 531L + y,
-                                         .calc_agecomp(
-                                           ages, round(PopDat$Rec[y] * propfemale[y]),
-                                           meanage[y] + agediff/2, sdage
-                                         )
+    age_comp[y, , 2] <- .calc_agecomp(
+                                     ages, round(PopDat$Rec[y] * propfemale[y]),
+                                     meanage[y] + agediff/2, sdage,
+                                     seed = seednum + 531L + y
     )
     for (k in 1:nage) {
       ret_by_age_sex[y + k, k, 1] <- age_comp[y, k, 1]
@@ -386,12 +382,11 @@ run_model <- function(config) {
 
       ##================================================## generate recruits
       if (sim_recruits == "spawners") {
-        sr <- withr::with_seed(seednum + 6600L + y,
-                               .calc_ricker(
-                                 spawn = PopDat$Esc[y], sigma = procerr,
-                                 alpha = alpha, beta = beta, rho = rho,
-                                 last.eps = ifelse(y == 1, 0, PopDat$eps[y-1])
-                               )
+        sr <- .calc_ricker(
+                          spawn = PopDat$Esc[y], sigma = procerr,
+                          alpha = alpha, beta = beta, rho = rho,
+                          last.eps = ifelse(y == 1, 0, PopDat$eps[y-1]),
+                          seed = seednum + 6600L + y
         )
         PopDat$RepOut[y] <- PopDat$Esc[y]
       }
@@ -408,12 +403,11 @@ run_model <- function(config) {
         if (sim_recruits == "fecundity") {
           fecundity_total <- round(sum(exp(.calc_reprod_output(sizes_y, allometry)[[1]])))
           if (ricker_type == "const_beta") {
-            sr <- withr::with_seed(seednum + 6610L + y,
-                                   .calc_ricker(
-                                     spawn = fecundity_total, sigma = procerr,
-                                     alpha = alpha_fec, beta = beta_fec, rho = rho,
-                                     last.eps = ifelse(y == 1, 0, PopDat$eps[y-1])
-                                   )
+            sr <- .calc_ricker(
+                              spawn = fecundity_total, sigma = procerr,
+                              alpha = alpha_fec, beta = beta_fec, rho = rho,
+                              last.eps = ifelse(y == 1, 0, PopDat$eps[y-1]),
+                              seed = seednum + 6610L + y
             )
           }
           PopDat$RepOut[y] <- fecundity_total
@@ -422,12 +416,11 @@ run_model <- function(config) {
         if (sim_recruits == "eggmass") {
           eggmass_total <- round(sum(exp(.calc_reprod_output(sizes_y, allometry)[[2]])))
           if (ricker_type == "const_beta") {
-            sr <- withr::with_seed(seednum + 6620L + y,
-                                   .calc_ricker(
-                                     spawn = eggmass_total, sigma = procerr,
-                                     alpha = alpha_egg, beta = beta_egg, rho = rho,
-                                     last.eps = ifelse(y == 1, 0, PopDat$eps[y-1])
-                                   )
+            sr <- .calc_ricker(
+                              spawn = eggmass_total, sigma = procerr,
+                              alpha = alpha_egg, beta = beta_egg, rho = rho,
+                              last.eps = ifelse(y == 1, 0, PopDat$eps[y-1]),
+                              seed = seednum + 6620L + y
             )
           }
           PopDat$RepOut[y] <- eggmass_total
@@ -440,17 +433,15 @@ run_model <- function(config) {
       PopDat$eps[y] <- round(sr$eps, 5)
 
       ##--------------------## generate sex-specific recruit age composition
-      age_comp[y, , 1] <- withr::with_seed(seednum + 6700L + y,
-                                           .calc_agecomp(
-                                             ages, round(PopDat$Rec[y] * (1 - propfemale[y])),
-                                             meanage[y] - agediff/2, sdage
-                                           )
+      age_comp[y, , 1] <- .calc_agecomp(
+                                       ages, round(PopDat$Rec[y] * (1 - propfemale[y])),
+                                       meanage[y] - agediff/2, sdage,
+                                       seed = seednum + 6700L + y
       )
-      age_comp[y, , 2] <- withr::with_seed(seednum + 6710L + y,
-                                           .calc_agecomp(
-                                             ages, round(PopDat$Rec[y] * propfemale[y]),
-                                             meanage[y] + agediff/2, sdage
-                                           )
+      age_comp[y, , 2] <- .calc_agecomp(
+                                       ages, round(PopDat$Rec[y] * propfemale[y]),
+                                       meanage[y] + agediff/2, sdage,
+                                       seed = seednum + 6710L + y
       )
       for (k in 1:nage) {
         ret_by_age_sex[y + k, k, 1] <- age_comp[y, k, 1]

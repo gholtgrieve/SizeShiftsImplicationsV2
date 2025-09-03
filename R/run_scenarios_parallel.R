@@ -25,7 +25,7 @@ run_scenarios <- function(scenarios,
   nscen <- nrow(scen)
   if (nscen == 0L) stop("No scenarios selected.")
 
-  ## --- CRN seeds (same iteration-k seed for every scenario)
+  ## --- Base seeds per iteration (used directly for CRN or offset for parallel)
   seeds_k <- switch(seed,
                     reproducible = seq_len(niter),
                     random       = sample.int(1e6, niter, replace = TRUE),
@@ -70,13 +70,21 @@ run_scenarios <- function(scenarios,
       profile <- resolve_profile(params)
       out <- vector("list", niter)
       for (k in seq_len(niter)) {
+        # Abandon CRN when parallel (avoid cross-worker randomness collisions)
+        seednum <- if (isTRUE(parallel)) {
+          seeds_k[k] + 10000 * j
+        } else {
+          seeds_k[k]
+        }
+
         cfg <- build_config(
           params   = profile,
           scen_row = scen_row,
           j        = j,
           k        = k,
-          seednum  = seeds_k[k]
+          seednum  = seednum
         )
+
         # run_model() should use withr::with_seed(seednum, { ... }) internally
         out[[k]] <- try(run_model(cfg), silent = TRUE)
         p() # tick progress once per iteration
@@ -171,13 +179,17 @@ run_scenarios <- function(scenarios,
 
   run_out <- list(
     meta = list(
-      timestamp   = time.save,
-      niter       = niter,
-      nscen       = nscen,
-      seed_mode   = seed,
-      seed_list   = seeds_k,     # CRN: one seed per iteration
-      params_spec = params,
-      output_dir  = output_dir
+      timestamp      = time.save,
+      niter          = niter,
+      nscen          = nscen,
+      seed_mode      = seed,              # "reproducible" or "random"
+      seed_strategy  = if (isTRUE(parallel)) "per_scenario_iter" else "CRN",
+      seed_list      = seeds_k,           # base seeds used per iteration
+      parallel       = isTRUE(parallel),
+      workers        = workers,
+      plan           = if (isTRUE(parallel)) as.character(attr(future::plan(), "call")) else "sequential",
+      params_spec    = params,
+      output_dir     = output_dir
     ),
     scenarios = scen,
     results = list(

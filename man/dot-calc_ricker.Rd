@@ -4,7 +4,7 @@
 \alias{.calc_ricker}
 \title{Generate recruits from spawners using a Ricker stock-recruitment model}
 \usage{
-.calc_ricker(spawn, sigma, alpha, beta, rho, last.eps)
+.calc_ricker(spawn, sigma, alpha, beta, rho, last.eps, seed = NULL)
 }
 \arguments{
 \item{spawn}{Numeric. Number of spawners in the current year.}
@@ -18,9 +18,11 @@
 \item{rho}{Numeric. Temporal autocorrelation coefficient (between 0 and 1).}
 
 \item{last.eps}{Numeric. Recruitment residual (in log-space) from the previous year.}
+
+\item{seed}{Optional integer. If provided, sets the random seed for reproducible draws.}
 }
 \value{
-A named list with:
+A named list with components:
 \describe{
 \item{\code{rec}}{Numeric. Recruits in the current year.}
 \item{\code{eps}}{Numeric. Residual (in log-space) for the current year.}
@@ -29,10 +31,10 @@ A named list with:
 \description{
 Internal function to simulate recruitment from a given number of spawners
 using the Ricker model, with log-normal environmental variability and
-temporal autocorrelation in residuals.
+temporal autocorrelation in residuals. Accepts an optional RNG seed for reproducibility.
 }
 \examples{
 .calc_ricker(spawn = 100, sigma = 0.3, alpha = 5, beta = 0.01,
-             rho = 0.5, last.eps = 0.1)
+             rho = 0.5, last.eps = 0.1, seed = 456)
 }
 \keyword{internal}

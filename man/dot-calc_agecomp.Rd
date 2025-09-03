@@ -4,7 +4,7 @@
 \alias{.calc_agecomp}
 \title{Generate age composition of brood year recruits}
 \usage{
-.calc_agecomp(ages, recruits, meanage, sdage)
+.calc_agecomp(ages, recruits, meanage, sdage, seed = NULL)
 }
 \arguments{
 \item{ages}{Numeric vector. All simulated age classes.}
@@ -14,15 +14,18 @@
 \item{meanage}{Numeric. Mean age of recruits.}
 
 \item{sdage}{Numeric. Standard deviation of the age distribution.}
+
+\item{seed}{Optional integer. If provided, sets the random seed for reproducible draws.}
 }
 \value{
-Numeric vector. Number of recruits in each age class.
+Numeric vector. Number of recruits in each age class (same length as \code{ages}).
 }
 \description{
-Internal function to simulate the age distribution of recruits from a given brood year.
+Internal function to simulate the age distribution of recruits from a given brood year
+using a normal-distribution-based Dirichlet draw. Accepts an optional RNG seed for reproducibility.
 }
 \examples{
 ages <- 2:6
-.calc_agecomp(ages, recruits = 100, meanage = 4, sdage = 0.8)
+.calc_agecomp(ages, recruits = 100, meanage = 4, sdage = 0.8, seed = 123)
 }
 \keyword{internal}

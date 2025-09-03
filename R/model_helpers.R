@@ -3,32 +3,40 @@
 
 #' Generate age composition of brood year recruits
 #'
-#' Internal function to simulate the age distribution of recruits from a given brood year.
+#' Internal function to simulate the age distribution of recruits from a given brood year
+#' using a normal-distribution-based Dirichlet draw. Accepts an optional RNG seed for reproducibility.
 #'
 #' @param ages Numeric vector. All simulated age classes.
 #' @param recruits Numeric. Number of recruits from that brood year.
 #' @param meanage Numeric. Mean age of recruits.
 #' @param sdage Numeric. Standard deviation of the age distribution.
-#' @return Numeric vector. Number of recruits in each age class.
+#' @param seed Optional integer. If provided, sets the random seed for reproducible draws.
+#'
+#' @return Numeric vector. Number of recruits in each age class (same length as `ages`).
+#'
 #' @keywords internal
+#'
 #' @examples
 #' ages <- 2:6
-#' .calc_agecomp(ages, recruits = 100, meanage = 4, sdage = 0.8)
-.calc_agecomp <- function(ages, recruits, meanage, sdage) {
-
-  # Probabilities by age given mean age
-  probs_a <- dnorm(ages, meanage, sdage)
-  probs_a <- probs_a / sum(probs_a)
-
-  # Draw Dirichlet based on probabilities by age
-  d <- 50
-  probs <- as.vector(gtools::rdirichlet(1, probs_a * d))
-
-  # Age counts
-  agecounts <- round(probs * recruits)
-
-  agecounts
+#' .calc_agecomp(ages, recruits = 100, meanage = 4, sdage = 0.8, seed = 123)
+.calc_agecomp <- function(ages, recruits, meanage, sdage, seed = NULL) {
+  if (!is.null(seed)) {
+    withr::with_seed(seed, {
+      probs_a <- dnorm(ages, meanage, sdage)
+      probs_a <- probs_a / sum(probs_a)
+      d <- 50
+      probs <- as.vector(gtools::rdirichlet(1, probs_a * d))
+      round(probs * recruits)
+    })
+  } else {
+    probs_a <- dnorm(ages, meanage, sdage)
+    probs_a <- probs_a / sum(probs_a)
+    d <- 50
+    probs <- as.vector(gtools::rdirichlet(1, probs_a * d))
+    round(probs * recruits)
+  }
 }
+
 
 
 #' Fit dynamic linear models (DLMs) with time-varying intercept and/or slope
@@ -143,7 +151,7 @@
 #'
 #' Internal function to simulate recruitment from a given number of spawners
 #' using the Ricker model, with log-normal environmental variability and
-#' temporal autocorrelation in residuals.
+#' temporal autocorrelation in residuals. Accepts an optional RNG seed for reproducibility.
 #'
 #' @param spawn Numeric. Number of spawners in the current year.
 #' @param sigma Numeric. Standard deviation of the random error term.
@@ -151,31 +159,37 @@
 #' @param beta Numeric. Density-dependence parameter of the Ricker model.
 #' @param rho Numeric. Temporal autocorrelation coefficient (between 0 and 1).
 #' @param last.eps Numeric. Recruitment residual (in log-space) from the previous year.
-#' @return A named list with:
-#'   \describe{
-#'     \item{\code{rec}}{Numeric. Recruits in the current year.}
-#'     \item{\code{eps}}{Numeric. Residual (in log-space) for the current year.}
-#'   }
+#' @param seed Optional integer. If provided, sets the random seed for reproducible draws.
+#'
+#' @return A named list with components:
+#' \describe{
+#'   \item{\code{rec}}{Numeric. Recruits in the current year.}
+#'   \item{\code{eps}}{Numeric. Residual (in log-space) for the current year.}
+#' }
+#'
+#' @keywords internal
+#'
 #' @examples
 #' .calc_ricker(spawn = 100, sigma = 0.3, alpha = 5, beta = 0.01,
-#'              rho = 0.5, last.eps = 0.1)
-#' @keywords internal
-.calc_ricker <- function(spawn, sigma, alpha, beta, rho, last.eps) {
-
-  # Normal random error with bias correction for the mean
-  delta <- rnorm(1, mean = -(sigma^2) / 2, sd = sigma)
-
-  # Residual (year y) in log-space with temporal autocorrelation
-  eps <- rho * last.eps + sqrt(1 - rho^2) * delta
-
-  # ln(recruits/spawner) with autocorrelated residuals
-  lnrs <- log(alpha) - beta * spawn + eps
-
-  # Recruits
-  rec <- exp(lnrs) * spawn
-
-  list(rec = rec, eps = eps)
+#'              rho = 0.5, last.eps = 0.1, seed = 456)
+.calc_ricker <- function(spawn, sigma, alpha, beta, rho, last.eps, seed = NULL) {
+  if (!is.null(seed)) {
+    withr::with_seed(seed, {
+      delta <- rnorm(1, mean = -(sigma^2) / 2, sd = sigma)
+      eps <- rho * last.eps + sqrt(1 - rho^2) * delta
+      lnrs <- log(alpha) - beta * spawn + eps
+      rec <- exp(lnrs) * spawn
+      list(rec = rec, eps = eps)
+    })
+  } else {
+    delta <- rnorm(1, mean = -(sigma^2) / 2, sd = sigma)
+    eps <- rho * last.eps + sqrt(1 - rho^2) * delta
+    lnrs <- log(alpha) - beta * spawn + eps
+    rec <- exp(lnrs) * spawn
+    list(rec = rec, eps = eps)
+  }
 }
+
 
 
 #' Harvest selectivity based on fish size and mesh size
@@ -211,66 +225,7 @@
 
 
 #' Select scenarios to run
-#'
 #' Filter the package's built-in scenarios table using a single selector argument.
-#' The selector can be:
-#' \itemize{
-#'   \item `"all"` (or `"Ohlberger"`) — return all rows (subject to \code{enforce_constraints}).
-#'   \item `"Kuskokwim"` — a convenience alias that keeps only
-#'         \code{selectivity == "unselective"} and \code{trends != "age-length trends"}
-#'         (still subject to \code{enforce_constraints}).
-#'   \item A single dplyr-style filter \strong{string}, parsed with \code{rlang::parse_expr()},
-#'         e.g. \code{"selectivity == 'unselective' & factorMSY %in% c(0.75, 1.50)"}.
-#'   \item A \strong{numeric} vector — treated as \code{scen_num} values if that
-#'         column exists; otherwise as row indices.
-#' }
-#'
-#' By default, the function enforces your design constraint: for gillnets
-#' (\code{"8.5 inch gillnet"} or \code{"6 inch gillnet"}) only \code{factorMSY == 1.00}
-#' is allowed; for \code{"unselective"} nets, \code{factorMSY} may be
-#' \code{1.00}, \code{0.75}, or \code{1.50}.
-#'
-#' @param selector See details above. Case-insensitive for the special aliases
-#'   \code{"all"}, \code{"Ohlberger"}, and \code{"Kuskokwim"}.
-#' @param enforce_constraints Logical, default \code{TRUE}. If \code{TRUE}, keep only
-#'   the allowed combinations: for "unselective", \code{factorMSY} in
-#'   \code{c(1.00, 0.75, 1.50)}; for "8.5 inch gillnet" or "6 inch gillnet",
-#'   \code{factorMSY == 1.00}.
-#'
-#' @return A tibble with the selected scenarios (zero rows if nothing matches).
-#'
-#' @details
-#' \itemize{
-#'   \item Uses the package's built-in \emph{scenarios} dataset; no argument is required.
-#'   \item The function coerces \code{factorMSY} to numeric internally to make filtering robust.
-#'   \item The filter string is parsed with \code{rlang::parse_expr()} and evaluated in the
-#'         context of the scenarios table, so column names should be referenced directly
-#'         (e.g., \code{mgmt == 'smsy_goal'}).
-#'   \item When \code{selector} is numeric and \code{scen_num} exists, selection is by ID and
-#'         does not depend on row order.
-#' }
-#'
-#' @examples
-#' # 1) Return all allowed scenarios (built-in dataset)
-#' head(select_scenarios("all"))
-#'
-#' # 2) Convenience aliases
-#' kusk <- select_scenarios("Kuskokwim")   # unselective & trends != "age-length trends"
-#' ohl  <- select_scenarios("Ohlberger")   # same as "all"
-#'
-#' # 3) Filter by expression: unselective nets, no DLM mgmt, conservative or aggressive MSY
-#' sel <- "selectivity == 'unselective' & mgmt %in% c('smsy_goal','s_eq_goal') & factorMSY %in% c(0.75, 1.50)"
-#' out <- select_scenarios(sel)
-#' nrow(out)
-#'
-#' # 4) Select by scenario numbers (IDs)
-#' select_scenarios(c(1, 12, 37, 60))
-#'
-#' # 5) Inspect everything in the table (including intentionally omitted combos)
-#' #    by disabling constraints (useful for QA)
-#' all_raw <- select_scenarios("all", enforce_constraints = FALSE)
-#' nrow(all_raw)
-#'
 #' @keywords internal
 .select_scenarios <- function(selector = "all", enforce_constraints = TRUE) {
   scens <- scenarios  # built-in dataset

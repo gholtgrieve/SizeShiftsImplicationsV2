@@ -2,61 +2,13 @@
 % Please edit documentation in R/model_helpers.R
 \name{.select_scenarios}
 \alias{.select_scenarios}
-\title{Select scenarios to run}
+\title{Select scenarios to run
+Filter the package's built-in scenarios table using a single selector argument.}
 \usage{
 .select_scenarios(selector = "all", enforce_constraints = TRUE)
 }
-\arguments{
-\item{selector}{See details above. Case-insensitive for the special aliases
-\code{"all"}, \code{"Ohlberger"}, and \code{"Kuskokwim"}.}
-
-\item{enforce_constraints}{Logical, default \code{TRUE}. If \code{TRUE}, keep only
-the allowed combinations: for "unselective", \code{factorMSY} in
-\code{c(1.00, 0.75, 1.50)}; for "8.5 inch gillnet" or "6 inch gillnet",
-\code{factorMSY == 1.00}.}
-}
-\value{
-A tibble with the selected scenarios (zero rows if nothing matches).
-}
 \description{
-
-}
-\details{
-By default, the function enforces your design constraint: for gillnets
-(\code{"8.5 inch gillnet"} or \code{"6 inch gillnet"}) only \code{factorMSY == 1.00}
-is allowed; for \code{"unselective"} nets, \code{factorMSY} may be
-\code{1.00}, \code{0.75}, or \code{1.50}.
-
-\itemize{
-\item Uses the package's built-in \emph{scenarios} dataset; no argument is required.
-\item The function coerces \code{factorMSY} to numeric internally to make filtering robust.
-\item The filter string is parsed with \code{rlang::parse_expr()} and evaluated in the
-context of the scenarios table, so column names should be referenced directly
-(e.g., \code{mgmt == 'smsy_goal'}).
-\item When \code{selector} is numeric and \code{scen_num} exists, selection is by ID and
-does not depend on row order.
-}
-}
-\examples{
-# 1) Return all allowed scenarios (built-in dataset)
-head(select_scenarios("all"))
-
-# 2) Convenience aliases
-kusk <- select_scenarios("Kuskokwim")   # unselective & trends != "age-length trends"
-ohl  <- select_scenarios("Ohlberger")   # same as "all"
-
-# 3) Filter by expression: unselective nets, no DLM mgmt, conservative or aggressive MSY
-sel <- "selectivity == 'unselective' & mgmt \%in\% c('smsy_goal','s_eq_goal') & factorMSY \%in\% c(0.75, 1.50)"
-out <- select_scenarios(sel)
-nrow(out)
-
-# 4) Select by scenario numbers (IDs)
-select_scenarios(c(1, 12, 37, 60))
-
-# 5) Inspect everything in the table (including intentionally omitted combos)
-#    by disabling constraints (useful for QA)
-all_raw <- select_scenarios("all", enforce_constraints = FALSE)
-nrow(all_raw)
-
+Select scenarios to run
+Filter the package's built-in scenarios table using a single selector argument.
 }
 \keyword{internal}
