@@ -291,3 +291,122 @@
 
   stop("Invalid `selector`: must be one of 'all', 'Ohlberger', 'Kuskokwim', a filter expression string, or a numeric vector of scenario IDs or row indices.")
 }
+
+
+# Internal: required fields for a valid ssi_run
+.required_run_params <- c(
+  # timeline / reviews
+  "nyi", "nyh", "ny", "goalfreq", "firstrev", "review_years",
+  # reproducibility / provenance
+  "seednum", "rng_kind", "blas_threads",
+  "pkg_version", "timestamp",
+  # (optional but recommended) scenario knobs used to build scenarios
+  "scenario_grid_hash"
+)
+
+
+# Internal: validate parameters are present and consistent
+.validate_run_params <- function(params) {
+  miss <- setdiff(.required_run_params, names(params %||% list()))
+  if (length(miss)) {
+    stop("Missing required run parameters: ", paste(miss, collapse = ", "), call. = FALSE)
+  }
+  # Basic consistency checks
+  if (!is.numeric(params$nyi) || !is.numeric(params$nyh) || !is.numeric(params$ny)) {
+    stop("nyi/nyh/ny must be numeric.", call. = FALSE)
+  }
+  if (!is.numeric(params$goalfreq) || params$goalfreq <= 0) {
+    stop("goalfreq must be a positive number.", call. = FALSE)
+  }
+  if (!is.numeric(params$firstrev)) stop("firstrev must be numeric.", call. = FALSE)
+
+  expected_reviews <- seq(params$nyi + params$firstrev, params$ny, by = params$goalfreq)
+  if (!isTRUE(all.equal(unname(expected_reviews), unname(params$review_years)))) {
+    stop("`review_years` does not match seq(nyi + firstrev, ny, by = goalfreq).", call. = FALSE)
+  }
+  invisible(TRUE)
+}
+
+
+#' Upgrade a legacy ssi_run by injecting required parameters
+#'
+#' Use this when an older `ssi_run` is missing timeline/review parameters.
+#' It records nyi, nyh, ny, goalfreq, firstrev, computed review_years,
+#' and hist_end_year, plus light provenance for reproducibility.
+#'
+#' @param run       legacy `ssi_run` object
+#' @param nyi       integer(1) initial years (e.g., 10)
+#' @param nyh       integer(1) historical length in years (e.g., 50)
+#' @param ny        integer(1) total simulated years (e.g., 110)
+#' @param goalfreq  integer(1) review cadence in years (e.g., 10)
+#' @param firstrev  integer(1) first review offset after nyi (e.g., 20)
+#' @param seednum   optional integer seed recorded for provenance
+#' @return          upgraded `ssi_run` (invisible)
+#' @keywords internal
+.upgrade_ssi_run_params <- function(run, nyi, nyh, ny, goalfreq, firstrev, seednum = NULL) {
+  stopifnot(inherits(run, "ssi_run"))
+
+  # ---- validate inputs ------------------------------------------------------
+  req <- list(nyi = nyi, nyh = nyh, ny = ny, goalfreq = goalfreq, firstrev = firstrev)
+  bad <- vapply(req, function(x) !is.numeric(x) || length(x) != 1L || !is.finite(x), logical(1))
+  if (any(bad)) {
+    stop("All of nyi, nyh, ny, goalfreq, firstrev must be numeric scalars.", call. = FALSE)
+  }
+  if (goalfreq <= 0) stop("`goalfreq` must be > 0.", call. = FALSE)
+  if (nyi < 0 || nyh <= 0 || ny <= 0) stop("`nyi`>=0, `nyh`>0, `ny`>0 required.", call. = FALSE)
+
+  # ---- compute derived values ----------------------------------------------
+  review_years  <- seq(from = nyi + firstrev, to = ny, by = goalfreq)
+  if (!length(review_years)) {
+    stop("Computed `review_years` is empty. Check nyi/ny/goalfreq/firstrev.", call. = FALSE)
+  }
+  hist_end_year <- nyi + nyh
+
+  # ---- light provenance (best-effort; no hard deps) -------------------------
+  rng_kind    <- try(paste(utils::capture.output(RNGkind()), collapse = " "), silent = TRUE)
+  rng_kind    <- if (inherits(rng_kind, "try-error")) NA_character_ else rng_kind
+  blas_threads <- suppressWarnings(as.integer(Sys.getenv("OMP_NUM_THREADS", unset = NA_character_)))
+  pkg_version <- try(as.character(utils::packageVersion("SizeShiftsImplicationsV2")), silent = TRUE)
+  pkg_version <- if (inherits(pkg_version, "try-error")) NA_character_ else pkg_version
+  scen_hash   <- try({
+    if (requireNamespace("digest", quietly = TRUE)) digest::digest(run$scenarios) else NA_character_
+  }, silent = TRUE)
+  scen_hash   <- if (inherits(scen_hash, "try-error")) NA_character_ else scen_hash
+
+  # ---- merge into run$parameters (preserve existing where present) ----------
+  if (is.null(run$parameters)) run$parameters <- list()
+  add_if_null <- function(x, name, value) {
+    if (is.null(x[[name]])) x[[name]] <- value
+    x
+  }
+
+  run$parameters$nyi         <- nyi
+  run$parameters$nyh         <- nyh
+  run$parameters$ny          <- ny
+  run$parameters$goalfreq    <- goalfreq
+  run$parameters$firstrev    <- firstrev
+  run$parameters$review_years <- review_years
+  run$parameters$hist_end_year <- hist_end_year
+
+  run$parameters <- add_if_null(run$parameters, "seednum", seednum)
+  run$parameters <- add_if_null(run$parameters, "rng_kind", rng_kind)
+  run$parameters <- add_if_null(run$parameters, "blas_threads", blas_threads)
+  run$parameters <- add_if_null(run$parameters, "pkg_version", pkg_version)
+  run$parameters <- add_if_null(run$parameters, "timestamp", format(Sys.time(), "%Y-%m-%d %H:%M:%S"))
+  run$parameters <- add_if_null(run$parameters, "scenario_grid_hash", scen_hash)
+
+  # ---- internal consistency checks -----------------------------------------
+  expected_reviews <- seq(nyi + firstrev, ny, by = goalfreq)
+  if (!isTRUE(all.equal(unname(expected_reviews), unname(run$parameters$review_years)))) {
+    stop("`review_years` mismatch with seq(nyi + firstrev, ny, by = goalfreq).", call. = FALSE)
+  }
+  if (!is.numeric(run$parameters$hist_end_year) || length(run$parameters$hist_end_year) != 1L) {
+    stop("`hist_end_year` must be a numeric scalar.", call. = FALSE)
+  }
+
+  # Reassert class tag
+  class(run) <- unique(c("ssi_run", class(run)))
+
+  invisible(run)
+}
+

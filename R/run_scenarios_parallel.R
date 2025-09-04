@@ -191,6 +191,22 @@ run_scenarios <- function(scenarios,
       params_spec    = params,
       output_dir     = output_dir
     ),
+    run$parameters <- list(
+      # timeline / reviews
+      nyi = nyi,
+      nyh = nyh,
+      ny = ny,
+      goalfreq = goalfreq,
+      firstrev = firstrev,
+      review_years = seq(from = nyi + firstrev, to = ny, by = goalfreq),
+      # reproducibility / provenance
+      seednum = seednum,
+      rng_kind = paste(utils::capture.output(RNGkind()), collapse = " "),
+      blas_threads = as.integer(Sys.getenv("OMP_NUM_THREADS", unset = NA_character_)),
+      pkg_version = as.character(utils::packageVersion("SizeShiftsImplicationsV2")),
+      timestamp = format(Sys.time(), "%Y-%m-%d %H:%M:%S"),
+      scenario_grid_hash = digest::digest(run$scenarios)
+    ),
     scenarios = scen,
     results = list(
       para         = para.list,
@@ -208,6 +224,7 @@ run_scenarios <- function(scenarios,
       impl_errors  = impl_errors.list
     )
   )
+  .validate_run_params(run$parameters)
   class(run_out) <- c("ssi_run", "list")
 
   rds_path <- file.path(output_dir, paste0("run_", time.save, ".rds"))

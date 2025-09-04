@@ -138,35 +138,32 @@
 }
 
 # Review years as in run_model(): goalrev <- seq(nyi + firstrev, ny, by = goalfreq)
-.get_review_years <- function(data, series_length = NULL) {
-  nyi      <- .get_nyi(data, 50L)
-  ny       <- .get_ny(data, NA_integer_)
-  goalfreq <- .get_goalfreq(data, NA_integer_)
-  firstrev <- .get_firstrev(data, 20L)
-
-  if (is.finite(nyi) && is.finite(ny) && is.finite(goalfreq) && goalfreq > 0) {
-    return(seq(from = nyi + firstrev, to = ny, by = goalfreq))
-  }
-
-  # Fallback: 1:N if we can’t construct calendar years
-  if (is.null(series_length)) stop("Cannot infer review_years: provide series_length.")
-  seq_len(series_length)
+.get_review_years <- function(data) {
+  ry <- tryCatch(data$parameters$review_years, error = function(e) NULL)
+  if (is.null(ry)) stop("`review_years` missing from ssi_run$parameters.", call. = FALSE)
+  ry
 }
+
+.get_nyi      <- function(data, default = NA_integer_) data$parameters$nyi
+.get_nyh      <- function(data, default = NA_integer_) data$parameters$nyh
+.get_ny       <- function(data, default = NA_integer_) data$parameters$ny
+.get_goalfreq <- function(data, default = NA_integer_) data$parameters$goalfreq
+.get_firstrev <- function(data, default = NA_integer_) data$parameters$firstrev
+
 
 # Index of the first review *at or after* end of history.
 # In run_model(), calendar review years are absolute (e.g., nyi+20, ...).
 # The “post-historical review” target is at calendar year (nyi + nyh).
 .get_review_index_post_history <- function(data, review_years) {
-  nyi <- .get_nyi(data, 50L)
-  nyh <- .get_nyh(data, 50L)
-  target <- nyi + nyh
+  target <- .get_nyi(data) + .get_nyh(data)
   idx <- which(review_years == target)
-  if (length(idx) == 0L) {
-    idx <- suppressWarnings(min(which(review_years >= target)))
+  if (length(idx) == 0L) idx <- suppressWarnings(min(which(review_years >= target)))
+  if (!is.finite(idx) || idx < 1L) {
+    stop("Could not locate first post-historical review in `review_years`.", call. = FALSE)
   }
-  if (!is.finite(idx)) idx <- length(review_years) # fallback to last
   idx
 }
+
 
 # Per-iteration mean over a window (utility for other figs)
 .iter_window_means <- function(obs_list, year_index, col) {
@@ -224,31 +221,38 @@
   iter_names <- paste0("iter_", seq_len(niter))
 
   # Years: determine common window
-  first_obs <- obs_list[[1L]][[1L]]
-  if (!is.data.frame(first_obs) || !nrow(first_obs)) {
-    stop("Empty observation data in first scenario/iteration.")
-  }
-  tail_n <- min(nrow(first_obs), as.integer(years))
-  year_index <- seq.int(nrow(first_obs) - tail_n + 1L, nrow(first_obs))
+  nyh      <- .get_nyh(data, 50L)
+  ny_obs   <- nrow(as.data.frame(obs_list[[1]][[1]]))
+  year_index <- (nyh + 1L):ny_obs  # fixed window used for *all* scen/iter
 
   # Helper: per-iteration stats across selected years
   compute_stats <- function(data_matrix) {
-    means <- round(rowMeans(data_matrix, na.rm = TRUE), 0)
+    means <- rowMeans(data_matrix, na.rm = TRUE)
     names(means) <- iter_names
 
-    sd_val <- round(apply(data_matrix, 1L, stats::sd, na.rm = TRUE), 0)
+    sd_val <- apply(data_matrix, 1L, stats::sd, na.rm = TRUE)
     names(sd_val) <- iter_names
 
-    qs <- apply(
+    # (Not used by paper figs, but keep for completeness: within-iter, across time)
+    qs <- t(apply(
       data_matrix, 1L, stats::quantile,
       probs = c(0.025, 0.05, 0.10, 0.25, 0.5, 0.75, 0.90, 0.95, 0.975),
       na.rm = TRUE
+    ))
+
+    # Add across-iteration summaries of iteration means: median, 50% & 80% bands
+    across_iter <- list(
+      median = stats::median(means, na.rm = TRUE),
+      q50_lo = stats::quantile(means, 0.25, na.rm = TRUE),
+      q50_hi = stats::quantile(means, 0.75, na.rm = TRUE),
+      q80_lo = stats::quantile(means, 0.10, na.rm = TRUE),
+      q80_hi = stats::quantile(means, 0.90, na.rm = TRUE)
     )
-    qs <- round(t(qs), 0)
+
     rownames(qs) <- iter_names
     colnames(qs) <- c("q2.5","q5","q10","q25","q50","q75","q90","q95","q97.5")
 
-    list(means = means, sd = sd_val, quantiles = qs)
+    list(means = means, across_iter = across_iter, sd = sd_val, quantiles = qs)
   }
 
   # Build summaries for each scenario

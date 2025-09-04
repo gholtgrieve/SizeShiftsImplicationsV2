@@ -1,10 +1,9 @@
-#' @noRd
 #' Package startup configuration
 #'
 #' This function is automatically called by R when the package is loaded.
 #' It configures numerical libraries to use a single thread to ensure
 #' reproducibility and to avoid conflicts when running parallel simulations.
-
+#' @noRd
 .onLoad <- function(libname, pkgname) {
   # ---------------------------------------------------------------------------
   # Limit numerical libraries to a single thread
