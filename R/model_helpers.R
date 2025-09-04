@@ -298,7 +298,7 @@
   # timeline / reviews
   "nyi", "nyh", "ny", "goalfreq", "firstrev", "review_years",
   # reproducibility / provenance
-  "seednum", "rng_kind", "blas_threads",
+  "rng_kind", "blas_threads",
   "pkg_version", "timestamp",
   # (optional but recommended) scenario knobs used to build scenarios
   "scenario_grid_hash"

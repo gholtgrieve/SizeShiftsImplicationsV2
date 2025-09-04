@@ -53,6 +53,37 @@ run_scenarios <- function(scenarios,
     message("Parallel OFF (running sequentially).")
   }
 
+  # Extract config parameters for recording later
+  profile0 <- resolve_profile(params)  # or however you turn "Ohlberger" into a config list
+
+  # Normalize possible field names coming from build_config()/param_configs
+  nyi      <- profile0$nyi
+  nyh      <- profile0$nyh %||% profile0$nyh_len
+  ny       <- profile0$ny
+  goalfreq <- profile0$goalfreq %||% profile0$goal_freq
+  firstrev <- 20L # hard-coded in run_model()
+  review_years  <- seq(from = nyi + firstrev, to = ny, by = goalfreq) # derived
+  hist_end_year <- nyi + nyh # derived
+
+  missing <- c(
+    if (is.null(nyi)) "nyi",
+    if (is.null(nyh)) "nyh/nyh_len",
+    if (is.null(ny)) "ny",
+    if (is.null(goalfreq)) "goalfreq/goal_freq",
+    if (is.null(firstrev)) "firstrev/first_rev"
+  )
+  if (length(missing)) {
+    stop("Param profile is missing: ", paste(missing, collapse = ", "),
+         call. = FALSE)
+  }
+
+  review_years  <- seq(from = nyi + firstrev, to = ny, by = goalfreq)
+  if (!length(review_years)) {
+    stop("Computed review_years is empty. Check nyi/ny/goalfreq/firstrev.", call. = FALSE)
+  }
+  hist_end_year <- nyi + nyh
+
+
   ## --- Progress setup
   total_steps <- nscen * niter
   progressr::handlers(global = TRUE)
@@ -191,21 +222,21 @@ run_scenarios <- function(scenarios,
       params_spec    = params,
       output_dir     = output_dir
     ),
-    run$parameters <- list(
-      # timeline / reviews
-      nyi = nyi,
-      nyh = nyh,
-      ny = ny,
-      goalfreq = goalfreq,
-      firstrev = firstrev,
-      review_years = seq(from = nyi + firstrev, to = ny, by = goalfreq),
-      # reproducibility / provenance
-      seednum = seednum,
-      rng_kind = paste(utils::capture.output(RNGkind()), collapse = " "),
+    parameters = list(
+      nyi          = nyi,
+      nyh          = nyh,
+      ny           = ny,
+      goalfreq     = goalfreq,
+      firstrev     = firstrev,     # hard coded; recorded for transparency
+      review_years = review_years,
+      hist_end_year = hist_end_year,
+      # provenance
+      rng_kind     = paste(utils::capture.output(RNGkind()), collapse = " "),
       blas_threads = as.integer(Sys.getenv("OMP_NUM_THREADS", unset = NA_character_)),
-      pkg_version = as.character(utils::packageVersion("SizeShiftsImplicationsV2")),
-      timestamp = format(Sys.time(), "%Y-%m-%d %H:%M:%S"),
-      scenario_grid_hash = digest::digest(run$scenarios)
+      pkg_version  = as.character(utils::packageVersion("SizeShiftsImplicationsV2")),
+      timestamp    = format(Sys.time(), "%Y-%m-%d %H:%M:%S"),
+      scenario_grid_hash = if (requireNamespace("digest", quietly = TRUE))
+        digest::digest(scen) else NA_character_
     ),
     scenarios = scen,
     results = list(
@@ -224,7 +255,7 @@ run_scenarios <- function(scenarios,
       impl_errors  = impl_errors.list
     )
   )
-  .validate_run_params(run$parameters)
+  .validate_run_params(run_out$parameters)
   class(run_out) <- c("ssi_run", "list")
 
   rds_path <- file.path(output_dir, paste0("run_", time.save, ".rds"))

@@ -137,12 +137,25 @@
   sm
 }
 
-# Review years as in run_model(): goalrev <- seq(nyi + firstrev, ny, by = goalfreq)
+
+
+#' Access review years from an ssi_run
+#'
+#' Returns the sequence of review years used during the simulation.
+#' This is saved into `ssi_run$parameters$review_years` by [run_scenarios()].
+#'
+#' @param data An `ssi_run` object.
+#' @return Integer vector of review years.
+#' @keywords internal
 .get_review_years <- function(data) {
   ry <- tryCatch(data$parameters$review_years, error = function(e) NULL)
-  if (is.null(ry)) stop("`review_years` missing from ssi_run$parameters.", call. = FALSE)
+  if (is.null(ry)) {
+    stop("`review_years` not found in `ssi_run$parameters`. ",
+         "Re-run scenarios with a recent version of the package.")
+  }
   ry
 }
+
 
 .get_nyi      <- function(data, default = NA_integer_) data$parameters$nyi
 .get_nyh      <- function(data, default = NA_integer_) data$parameters$nyh
@@ -151,18 +164,32 @@
 .get_firstrev <- function(data, default = NA_integer_) data$parameters$firstrev
 
 
-# Index of the first review *at or after* end of history.
-# In run_model(), calendar review years are absolute (e.g., nyi+20, ...).
-# The “post-historical review” target is at calendar year (nyi + nyh).
-.get_review_index_post_history <- function(data, review_years) {
-  target <- .get_nyi(data) + .get_nyh(data)
-  idx <- which(review_years == target)
-  if (length(idx) == 0L) idx <- suppressWarnings(min(which(review_years >= target)))
+#' Index of the first post-historical review
+#' Uses `ssi_run$parameters$hist_end_year` and `ssi_run$parameters$review_years`
+#' to locate the review at or just after the end of the historical period.
+#' @param data An `ssi_run` object.
+#' @param review_years (optional) supply review years explicitly; by default
+#'   uses `.get_review_years(data)`.
+#' @return Integer scalar index into `review_years`.
+#' @keywords internal
+.get_review_index_post_history <- function(data, review_years = .get_review_years(data)) {
+  hist_end <- tryCatch(data$parameters$hist_end_year, error = function(e) NULL)
+  if (is.null(hist_end)) {
+    stop("`hist_end_year` not found in `ssi_run$parameters`. ",
+         "Re-run scenarios with a recent version of the package or upgrade legacy runs.")
+  }
+
+  idx <- which(review_years == hist_end)
+  if (length(idx) == 0L) {
+    idx <- suppressWarnings(min(which(review_years >= hist_end)))
+  }
+
   if (!is.finite(idx) || idx < 1L) {
-    stop("Could not locate first post-historical review in `review_years`.", call. = FALSE)
+    stop("Could not locate first post-historical review in `review_years`.")
   }
   idx
 }
+
 
 
 # Per-iteration mean over a window (utility for other figs)
