@@ -58,174 +58,170 @@
 #' @noRd
 #' @keywords internal
 
-.make_Ohlberger_figure_3 <- function(data, output_dir = ".") {
+#' @noRd
+#' @keywords internal
+.make_Ohlberger_figure_3 <- function(data,
+                                     output_dir = tempdir(),
+                                     file_basename = "Figure3",
+                                     width_in = 5.5,
+                                     height_in = 7) {
   stopifnot(inherits(data, "ssi_run"))
+  .validate_run_params(data$parameters)
 
-  colors <- c("darkgray", "deepskyblue3", "orange")  # TRM, YPR, DLM
-  file_basename <- "Figure3"
+  # Accessors (recorded in run)
+  nyh      <- .get_nyh(data)
+  obs_list <- .get_obs_list(data)
+  sr_list  <- .get_sr_params_list(data)
 
-  # Scenario metadata (standardized) and nested results
-  scen_df <- .scenarios_from_ssirun(data)           # adds scen, scen_num, scen_key
-  obs_list <- .get_obs_list(data)                   # data$results$obs
-  sr_list  <- .get_sr_params_list(data)             # data$results$sr_sim
+  # Scenario frame with standardized labels/keys
+  scen_df <- .scenarios_from_ssirun(data) |>
+    dplyr::filter(.data$factorMSY == "MSY") |>
+    dplyr::mutate(trends = droplevels(.data$trends)) |>
+    # After standardization, exclude "AL trends stabilized"
+    dplyr::filter(.data$trends != "AL trends stabilized") |>
+    droplevels()
 
-  # Keep only the three trends used in the paper AND factorMSY == 1 ("MSY"),
-  # then lock factor orders for stable facets/legend.
-  scen_df <- scen_df |>
-    dplyr::filter(
-      .data$trends %in% c("no trends", "ASL trends stabilized", "ASL trends continued")
-    ) |>
-    # robust filter for factorMSY == 1 regardless of encoding ("MSY", 1, "1")
-    dplyr::mutate(factorMSY_chr = as.character(.data$factorMSY)) |>
-    dplyr::filter(.data$factorMSY_chr %in% c("MSY", "1", "1.0")) |>
-    dplyr::select(-.data$factorMSY_chr) |>
-    dplyr::mutate(
-      trends = forcats::fct_relevel(
-        .data$trends,
-        "no trends", "ASL trends stabilized", "ASL trends continued"
-      ),
-      selectivity = forcats::fct_relevel(
-        .data$selectivity,
-        "small-mesh", "unselective", "large-mesh"
-      ),
-      mgmt = factor(.data$mgmt, levels = c("TRM", "YPR", "DLM"))
-    )
-
-
-
-  # Ensure we have matching keys in results
-  missing_keys <- setdiff(scen_df$scen_key, names(obs_list))
-  if (length(missing_keys)) {
-    stop("Missing obs_list entries for scenario keys: ", paste(missing_keys, collapse = ", "))
+  # Map scenarios to results (prefer names)
+  obs_names <- names(obs_list)
+  j_idx <- if (!is.null(obs_names) && all(scen_df$scen_key %in% obs_names)) {
+    match(scen_df$scen_key, obs_names)
+  } else {
+    scen_df$scen_num
   }
-  missing_keys_sr <- setdiff(scen_df$scen_key, names(sr_list))
-  if (length(missing_keys_sr)) {
-    stop("Missing sr_sim entries for scenario keys: ", paste(missing_keys_sr, collapse = ", "))
-  }
+  if (anyNA(j_idx)) stop("Scenario key mapping to obs/sr_sim failed.")
 
-  # Window = last nyh rows per iteration
-  nyh <- .get_nyh(data, 50L)
+  # Determine fixed post-history window from a non-empty obs df
+  first_obs <- as.data.frame(obs_list[[ j_idx[1] ]][[1]])
+  ny_obs    <- nrow(first_obs)
+  year_index <- seq.int(nyh + 1L, ny_obs)  # post-history window
+  if (length(year_index) <= 0) stop("Empty post-history window; check nyh/obs length.")
 
-  scen_keys <- scen_df$scen_key
-  nscen <- length(scen_keys)
-  niter <- length(obs_list[[scen_keys[1L]]])
+  # Preallocate per-metric matrices (rows = scenarios, cols = iterations)
+  nscen <- nrow(scen_df)
+  niter <- length(obs_list[[ j_idx[1] ]])
+  m_av_harv <- m_av_ret <- m_pRmax50 <- m_pSeq50 <- matrix(NA_real_, nscen, niter)
 
-  av_harv_mat <- matrix(NA_real_, nrow = nscen, ncol = niter)
-  av_ret_mat  <- matrix(NA_real_, nrow = nscen, ncol = niter)
-  p_over_Rmax <- matrix(NA_real_, nrow = nscen, ncol = niter)
-  p_over_S0   <- matrix(NA_real_, nrow = nscen, ncol = niter)
-
-  for (j in seq_len(nscen)) {
-    key <- scen_keys[j]
-    iter_obs <- obs_list[[key]]
-    iter_sr  <- sr_list[[key]]
-
+  # Core loop (paper-faithful)
+  for (ii in seq_len(nscen)) {
+    j <- j_idx[ii]
     for (k in seq_len(niter)) {
-      obs <- iter_obs[[k]]
-      srk <- iter_sr[[k]]
+      ob <- as.data.frame(obs_list[[j]][[k]])
+      if (!is.data.frame(ob) || !nrow(ob)) next
 
-      if (!is.data.frame(obs) || !nrow(obs) || !is.data.frame(srk) || !nrow(srk)) next
-      if (!all(c("alpha", "beta") %in% names(srk))) next
+      # Harvest / Return time-means over window (observed)
+      if ("obsHarv" %in% names(ob)) m_av_harv[ii, k] <- mean(ob$obsHarv[year_index], na.rm = TRUE)
+      if ("obsRet"  %in% names(ob)) m_av_ret [ii, k] <- mean(ob$obsRet [year_index], na.rm = TRUE)
 
-      nrows <- nrow(obs)
-      win_n <- min(nyh, nrows)
-      rows  <- seq.int(nrows - win_n + 1L, nrows)
+      # Probabilities relative to Rmax/Seq thresholds (NA-safe denominators)
+      sr <- as.data.frame(sr_list[[j]][[k]])
+      if (is.data.frame(sr) && all(c("alpha","beta") %in% names(sr))) {
+        R_max <- (sr$alpha / sr$beta) * exp(-1)
+        S_eq  <- log(sr$alpha) / sr$beta
 
-      esc <- obs$obsEsc[rows]
-      har <- obs$obsHarv[rows]
-      ret <- obs$obsRet[rows]
-      rec <- obs$recRec[rows]
+        rec <- if ("recRec" %in% names(ob)) ob$recRec[year_index] else NULL
+        esc <- if ("obsEsc" %in% names(ob)) ob$obsEsc[year_index] else NULL
 
-      alpha <- as.numeric(srk$alpha[1L])
-      beta  <- as.numeric(srk$beta[1L])
-      if (is.na(alpha) || is.na(beta) || beta <= 0) next
-
-      Rmax <- (alpha / beta) * exp(-1)
-      S0   <- log(alpha) / beta
-
-      av_harv_mat[j, k] <- mean(har, na.rm = TRUE)
-      av_ret_mat[j, k]  <- mean(ret, na.rm = TRUE)
-      p_over_Rmax[j, k] <- mean(rec > 0.5 * Rmax, na.rm = TRUE)
-      p_over_S0[j, k]   <- mean(esc > 0.5 * S0,   na.rm = TRUE)
+        if (!is.null(rec)) {
+          den <- sum(!is.na(rec))
+          if (den > 0) m_pRmax50[ii, k] <- sum(rec > 0.5 * R_max, na.rm = TRUE) / den
+        }
+        if (!is.null(esc)) {
+          den <- sum(!is.na(esc))
+          if (den > 0) m_pSeq50[ii, k] <- sum(esc > 0.5 * S_eq, na.rm = TRUE) / den
+        }
+      }
     }
   }
 
-  # Scenario-level median across iterations, then tidy
+  # Across-iteration medians (paper)
+  safemed <- function(v) stats::median(v, na.rm = TRUE)
   df <- scen_df |>
-    dplyr::select(.data$trends, .data$selectivity, .data$mgmt)
+    dplyr::mutate(
+      av_harv       = apply(m_av_harv, 1, safemed) / 1e3,  # thousands
+      av_ret        = apply(m_av_ret , 1, safemed) / 1e3,  # thousands
+      p_over_Rmax50 = apply(m_pRmax50, 1, safemed),
+      p_over_Seq50  = apply(m_pSeq50 , 1, safemed)
+    )
 
-  df$av_harv_thousands <- apply(av_harv_mat, 1L, function(x) stats::median(x, na.rm = TRUE) / 1e3)
-  df$av_ret_thousands  <- apply(av_ret_mat,  1L, function(x) stats::median(x, na.rm = TRUE) / 1e3)
-  df$p_over_Rmax50     <- apply(p_over_Rmax, 1L, function(x) stats::median(x, na.rm = TRUE))
-  df$p_over_S0_50      <- apply(p_over_S0,   1L, function(x) stats::median(x, na.rm = TRUE))
+  # Pivot only metric columns (avoid mixing types)
+  df_metrics <- df |>
+    dplyr::select(trends, selectivity, mgmt,
+                  av_harv, av_ret, p_over_Rmax50, p_over_Seq50)
 
-  df_long <- df |>
+  dfp <- df_metrics |>
     tidyr::pivot_longer(
-      cols = c(.data$av_harv_thousands, .data$av_ret_thousands,
-               .data$p_over_Rmax50, .data$p_over_S0_50),
-      names_to = "metric",
+      c(av_harv, av_ret, p_over_Rmax50, p_over_Seq50),
+      names_to  = "metric",
       values_to = "median"
     ) |>
     dplyr::mutate(
       metric_label = dplyr::case_when(
-        .data$metric == "av_harv_thousands" ~ "Mean harvest\n(thousands)",
-        .data$metric == "av_ret_thousands"  ~ "Mean run size\n(thousands)",
-        .data$metric == "p_over_Rmax50"     ~ "Probability\nabove 50% Rmax",
-        .data$metric == "p_over_S0_50"      ~ "Probability\nabove 50% S0"
+        metric == "av_harv"       ~ "Mean harvest\n(thousands)",
+        metric == "av_ret"        ~ "Mean run size\n(thousands)",
+        metric == "p_over_Rmax50" ~ "Probability\nabove 50% Rmax",
+        metric == "p_over_Seq50"  ~ "Probability\nabove 50% S0",
+        TRUE ~ metric
       ),
+      # lock facet row order to published layout
       metric_label = factor(
-        .data$metric_label,
+        metric_label,
         levels = c("Mean harvest\n(thousands)",
                    "Mean run size\n(thousands)",
                    "Probability\nabove 50% Rmax",
                    "Probability\nabove 50% S0")
       )
-    )
+    ) |>
+    droplevels()
 
-  p <- ggplot2::ggplot(
-    df_long,
-    ggplot2::aes(x = forcats::fct_inorder(.data$trends),
-                 y = .data$median,
-                 color = forcats::fct_inorder(.data$mgmt),
-                 group = .data$mgmt)
-  ) +
-    ggplot2::geom_line(linewidth = 0.5) +
+  # Colors and plot (match paper)
+  colors <- c(TRM = "darkgray", YPR = "deepskyblue3", DLM = "orange")
+
+  p <- dfp |>
+    ggplot2::ggplot(ggplot2::aes(
+      x = forcats::fct_inorder(trends),
+      y = median,
+      color = forcats::fct_inorder(mgmt),
+      group = mgmt
+    )) +
+    ggplot2::geom_line(linewidth = 0.5, na.rm = TRUE) +
     ggplot2::geom_point(shape = 1, size = 2.5, fill = NA, color = "black") +
-    ggplot2::geom_point(size = 2.2) +
-    ggplot2::scale_colour_manual(values = colors) +
+    ggplot2::geom_point(size = 2.2, na.rm = TRUE) +
+    ggplot2::scale_colour_manual(values = colors,
+                                 breaks = c("TRM","YPR","DLM"),
+                                 drop = FALSE) +
     ggplot2::scale_y_continuous(expand = c(0.07, 0.07), limits = c(0, NA)) +
     ggplot2::theme_classic() +
     ggplot2::labs(x = "", y = "", color = "Method") +
+    # use formula syntax (portable) and place y-strips outside panels
     ggplot2::facet_grid(
-      rows = ggplot2::vars(.data$metric_label),
-      cols = ggplot2::vars(.data$selectivity),
+      metric_label ~ selectivity,
       scales = "free_y",
-      switch = "y",
-      drop = FALSE
+      switch = "y"
     ) +
     ggplot2::theme(
       strip.background = ggplot2::element_blank(),
       strip.text.x = ggplot2::element_text(size = 10),
       strip.text.y = ggplot2::element_text(size = 10),
-      axis.line = ggplot2::element_line(linewidth = 0.1),
-      axis.text = ggplot2::element_text(size = 10),
+      strip.placement = "outside",
+      axis.line   = ggplot2::element_line(linewidth = 0.1),
+      axis.text   = ggplot2::element_text(size = 10),
       axis.text.x = ggplot2::element_text(angle = 90, vjust = 0.5, hjust = 1),
-      axis.title = ggplot2::element_text(size = 12),
+      axis.title  = ggplot2::element_text(size = 12),
       panel.border = ggplot2::element_rect(fill = NA, linewidth = 0.5),
       legend.key.size = grid::unit(0.5, "cm"),
       legend.title = ggplot2::element_text(size = 10),
-      legend.text = ggplot2::element_text(size = 8),
-      strip.placement = "outside"
+      legend.text  = ggplot2::element_text(size = 8)
     )
 
   outdir <- .ensure_outdir(output_dir, file_basename)
-  plot_path <- file.path(outdir, paste0(file_basename, ".pdf"))
-  data_path <- file.path(outdir, paste0(file_basename, ".csv"))
-  ggplot2::ggsave(plot_path, p, width = 5.5, height = 7, units = "in")
-  readr::write_csv(df_long, data_path)
 
-  message("Figure 3 saved to: ", plot_path)
-  message("Data saved to: ", data_path)
+  ggplot2::ggsave(
+    file.path(outdir, paste0(file_basename, ".pdf")),
+    p, width = width_in, height = height_in, units = "in"
+  )
 
-  return(invisible(list(plot = p, data = df_long)))
+  # Write summarized medians (what the figure shows)
+  readr::write_csv(dfp, file.path(outdir, paste0(file_basename, ".csv")))
+
+  invisible(list(plot = p, data = dfp, outdir = outdir))
 }
