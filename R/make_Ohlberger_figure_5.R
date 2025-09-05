@@ -39,69 +39,81 @@
 #' @noRd
 #' @keywords internal
 
-.make_Ohlberger_figure_5 <- function(data, output_dir = ".") {
+#' @noRd
+#' @keywords internal
+.make_Ohlberger_figure_5 <- function(data,
+                                     output_dir = tempdir(),
+                                     file_basename = "Figure5",
+                                     width_in = 6.5,
+                                     height_in = 3) {
   stopifnot(inherits(data, "ssi_run"))
+  .validate_run_params(data$parameters)
 
-  # ---- constants / style (match other figs) -----------------------------------
-  colors <- c(TRM = "darkgray", YPR = "deepskyblue3", DLM = "orange")
+  # ---- constants / style ------------------------------------------------------
+  colors  <- c(YPR = "deepskyblue3", DLM = "orange")  # (TRM not plotted)
   decades <- c(10L, 20L, 30L, 40L, 50L)
-  nyh_default <- 50L
-  file_basename <- "Figure5"
+  nyh     <- .get_nyh(data)            # post-history length recorded with run
+  obs_list <- .get_obs_list(data)
 
-  # ---- scenarios (standardize, filter to continued trends & base-case MSY) ----
-  scen_df <- tibble::as_tibble(data$scenarios)
-  scen_df <- .standardize_scenario_labels(scen_df)
+  # ---- scenarios (standardize) ------------------------------------------------
+  scen_df <- .scenarios_from_ssirun(data) |>
+    # published Fig 5 operates on base cases (MSY)
+    dplyr::filter(.data$factorMSY == "MSY") |>
+    droplevels()
 
-  # attach stable key matching results lists
-  if ("scen_num" %in% names(scen_df)) {
-    scen_df$scen_key <- paste0("scen_", scen_df$scen_num)
+  if (!nrow(scen_df)) stop("No scenarios after filtering to factorMSY == 'MSY'.")
+
+  # prefer name-based mapping to results
+  obs_names <- names(obs_list)
+  j_idx <- if (!is.null(obs_names) && all(scen_df$scen_key %in% obs_names)) {
+    match(scen_df$scen_key, obs_names)
   } else {
-    obs_names <- names(data$results$obs)
-    scen_df$scen_key <- if (!is.null(obs_names) && length(obs_names) == nrow(scen_df)) obs_names else paste0("scenario_", seq_len(nrow(scen_df)))
+    scen_df$scen_num
   }
+  if (anyNA(j_idx)) stop("Scenario key mapping to obs list failed.")
 
-  # filter: ASL trends continued, base-case MSY
-  scen_df <- scen_df |>
-    dplyr::filter(.data$trends == "ASL trends continued") |>
-    dplyr::filter(.data$factorMSY == "MSY")
+  # ---- fixed post-history window (same for all scen/iter) ---------------------
+  first_obs <- as.data.frame(obs_list[[ j_idx[1] ]][[1]])
+  ny_obs    <- nrow(first_obs)
+  from_idx  <- nyh + 1L
+  if (from_idx > ny_obs) stop("Empty post-history window; check nyh/obs length.")
+  # For decade i, window is (nyh+1) : (nyh + i*10)
 
-  if (!nrow(scen_df)) stop("No scenarios after filtering to 'ASL trends continued' and factorMSY == 'MSY'.")
-
-  # ---- pull obs and helper to compute future means by decade -------------------
-  obs_list <- data$results$obs
-  if (is.null(obs_list) || !length(obs_list)) {
-    stop("No observation lists found in `ssi_run` (run$results$obs).")
-  }
-
-  compute_future_means <- function(iter_obs, nyh = nyh_default, decades = decades) {
+  # ---- helper: per-iteration future means by decade ---------------------------
+  compute_future_means <- function(iter_obs, nyh, decades) {
     niter <- length(iter_obs)
     res <- matrix(NA_real_, nrow = niter, ncol = length(decades),
                   dimnames = list(paste0("iter_", seq_len(niter)), as.character(decades)))
     for (k in seq_len(niter)) {
       df <- iter_obs[[k]]
       if (!is.data.frame(df) || !nrow(df) || is.null(df$obsRet)) next
-      n <- nrow(df)
-      start <- min(nyh + 1L, n)
-      if (start > n) next
+      n  <- nrow(df)
+      from <- nyh + 1L
+      if (from > n) next
       for (j in seq_along(decades)) {
-        end <- min(nyh + decades[j], n)
-        if (end < start) { res[k, j] <- NA_real_; next }
-        res[k, j] <- mean(df$obsRet[start:end], na.rm = TRUE)
+        to   <- nyh + decades[j]
+        end  <- min(to, n)
+        if (end < from) { res[k, j] <- NA_real_; next }
+        res[k, j] <- mean(df$obsRet[from:end], na.rm = TRUE)
       }
     }
     res
   }
 
-  # compute per-scenario (niter x ndecades) means
+  # compute per-scenario (niter x ndecades) mean returns
   scen_keys <- scen_df$scen_key
   mean_mats <- setNames(vector("list", length(scen_keys)), scen_keys)
   for (i in seq_along(scen_keys)) {
     key <- scen_keys[i]
-    mean_mats[[key]] <- compute_future_means(obs_list[[key]], nyh_default, decades)
+    mean_mats[[key]] <- compute_future_means(
+      iter_obs = obs_list[[ key ]],
+      nyh      = nyh,
+      decades  = decades
+    )
   }
 
-  # ---- pair YPR/DLM with TRM within each (selectivity, factorMSY) cell ---------
-  scen_df$cell <- do.call(paste, c(scenv = scen_df[c("selectivity", "factorMSY")], sep = "||"))
+  # ---- pair YPR/DLM with TRM within (trends, selectivity, factorMSY) ----------
+  scen_df$cell <- do.call(paste, c(scenv = scen_df[c("trends","selectivity","factorMSY")], sep = "||"))
 
   trm_map <- scen_df |>
     dplyr::filter(.data$mgmt == "TRM") |>
@@ -113,22 +125,23 @@
 
   if (!nrow(cand_df)) stop("No YPR/DLM scenarios to compare against TRM for Figure 5.")
 
-  # build tidy output of median % diffs per decade
+  # ---- median % differences per decade (vs TRM) --------------------------------
   rows <- lapply(seq_len(nrow(cand_df)), function(i) {
-    row <- cand_df[i, ]
-    key_m <- row$scen_key
-    key_r <- row$trm_key
-    if (is.na(key_r)) return(NULL)
+    row  <- cand_df[i, ]
+    keym <- row$scen_key
+    keyr <- row$trm_key
+    if (is.na(keyr)) return(NULL)
 
-    Mm <- mean_mats[[key_m]]
-    Mr <- mean_mats[[key_r]]
+    Mm <- mean_mats[[keym]]
+    Mr <- mean_mats[[keyr]]
     if (is.null(Mm) || is.null(Mr)) return(NULL)
-    if (!all(colnames(Mm) == colnames(Mr))) return(NULL)
+    if (!identical(colnames(Mm), colnames(Mr))) return(NULL)
 
     pct <- 100 * (Mm - Mr) / Mr   # matrix [niter x ndecades]
     med <- apply(pct, 2L, stats::median, na.rm = TRUE)
 
     tibble::tibble(
+      trends      = row$trends,
       selectivity = row$selectivity,
       mgmt        = row$mgmt,
       period      = as.integer(names(med)),
@@ -139,15 +152,15 @@
   df_plot <- dplyr::bind_rows(rows)
   if (!nrow(df_plot)) stop("No paired differences computed for Figure 5.")
 
+  # Published filter timing: keep only ASL trends stabilized, drop TRM before plotting
   df_plot <- df_plot |>
-    .standardize_scenario_labels() |>
-    dplyr::mutate(
-      # keep only the two alternatives for this figure
-      mgmt = factor(.data$mgmt, levels = c("YPR", "DLM"))
-    ) |>
+    dplyr::filter(.data$trends == "ASL trends stabilized") |>
+    dplyr::filter(.data$mgmt %in% c("YPR","DLM")) |>
+    dplyr::select(-.data$trends) |>
+    dplyr::mutate(mgmt = factor(.data$mgmt, levels = c("YPR","DLM"))) |>
     droplevels()
 
-  # ---- plot --------------------------------------------------------------------
+  # ---- plot -------------------------------------------------------------------
   p <- ggplot2::ggplot(
     df_plot,
     ggplot2::aes(x = .data$period, y = .data$median,
@@ -157,12 +170,13 @@
     ggplot2::geom_line(linewidth = 0.5) +
     ggplot2::geom_point(shape = 1, size = 2.5, fill = NA, color = "black") +
     ggplot2::geom_point(size = 2.2) +
-    ggplot2::scale_colour_manual(values = c(YPR = "deepskyblue3", DLM = "orange")) +
+    ggplot2::scale_colour_manual(values = colors, breaks = c("YPR","DLM"), drop = FALSE) +
     ggplot2::scale_x_continuous(breaks = decades, limits = range(decades), expand = c(0.1, 0.1)) +
     ggplot2::scale_y_continuous(expand = c(0.1, 0.1)) +
     ggplot2::theme_classic() +
     ggplot2::labs(x = "Year", y = "Median difference in run size (%)", color = "Method") +
-    ggplot2::facet_grid(cols = ggplot2::vars(.data$selectivity)) +
+    # Portable faceting (avoids vars())
+    ggplot2::facet_grid(. ~ selectivity) +
     ggplot2::theme(
       strip.background = ggplot2::element_blank(),
       strip.text.x = ggplot2::element_text(size = 10),
@@ -173,21 +187,16 @@
       panel.border = ggplot2::element_rect(fill = NA, linewidth = 0.5),
       legend.key.size = grid::unit(0.5, "cm"),
       legend.title = ggplot2::element_text(size = 10),
-      legend.text = ggplot2::element_text(size = 8),
+      legend.text  = ggplot2::element_text(size = 8),
       legend.background = ggplot2::element_blank()
     )
 
-  # ---- save & return -----------------------------------------------------------
-  outdir <- file.path(output_dir, "Figure5")
-  if (!dir.exists(outdir)) dir.create(outdir, recursive = TRUE, showWarnings = FALSE)
-  plot_path <- file.path(outdir, paste0(file_basename, ".pdf"))
-  data_path <- file.path(outdir, paste0(file_basename, ".csv"))
+  # ---- save & return ----------------------------------------------------------
+  outdir <- .ensure_outdir(output_dir, file_basename)
+  ggplot2::ggsave(file.path(outdir, paste0(file_basename, ".pdf")),
+                  p, width = width_in, height = height_in, units = "in")
+  readr::write_csv(df_plot, file.path(outdir, paste0(file_basename, ".csv")))
 
-  ggplot2::ggsave(plot_path, p, width = 6.5, height = 3, units = "in")
-  readr::write_csv(df_plot, data_path)
-
-  message("Figure 5 saved to: ", plot_path)
-  message("Data saved to: ", data_path)
-
-  return(invisible(list(plot = p, data = df_plot)))
+  invisible(list(plot = p, data = df_plot, outdir = outdir))
 }
+
