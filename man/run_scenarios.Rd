@@ -11,7 +11,7 @@ run_scenarios(
   params = "Ohlberger",
   output_dir = file.path(here::here(), "outputs"),
   parallel = TRUE,
-  workers = NULL
+  workers = getOption("ssi.workers", NULL)
 )
 }
 \arguments{
@@ -25,9 +25,13 @@ run_scenarios(
 
 \item{output_dir}{Directory to write outputs (default: here()/outputs).}
 
-\item{parallel}{Logical. Run scenarios in parallel (one worker per scenario).}
+\item{parallel}{Logical. Run scenarios in parallel. Default = TRUE.
+When enabled, each worker handles one scenario.}
 
-\item{workers}{Integer or NULL. Number of workers; default auto-detect.}
+\item{workers}{Integer or NULL. Number of parallel workers. If NULL
+(the default), the function uses \code{parallelly::availableCores(omit=c("system","fallback")) - 1},
+capped at the number of scenarios and never below 1. This leaves one core free
+for the main R session / operating system.}
 }
 \description{
 High-level interface to run the simulation across a set of scenarios and

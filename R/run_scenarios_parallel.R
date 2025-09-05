@@ -9,8 +9,12 @@
 #' @param seed "reproducible" (1:niter) or "random" (sampled seeds).
 #' @param params Profile name ("Ohlberger","Kuskokwim") or full list for [build_config()].
 #' @param output_dir Directory to write outputs (default: here()/outputs).
-#' @param parallel Logical. Run scenarios in parallel (one worker per scenario).
-#' @param workers Integer or NULL. Number of workers; default auto-detect.
+#' @param parallel Logical. Run scenarios in parallel. Default = TRUE.
+#'   When enabled, each worker handles one scenario.
+#' @param workers Integer or NULL. Number of parallel workers. If NULL
+#'   (the default), the function uses \code{parallelly::availableCores(omit=c("system","fallback")) - 1},
+#'   capped at the number of scenarios and never below 1. This leaves one core free
+#'   for the main R session / operating system.
 #' @export
 run_scenarios <- function(scenarios,
                           niter      = 1000,
@@ -18,9 +22,8 @@ run_scenarios <- function(scenarios,
                           params     = "Ohlberger",
                           output_dir = file.path(here::here(), "outputs"),
                           parallel   = TRUE,
-                          workers    = NULL) {
-
-  ## --- Select scenarios
+                          workers    = getOption("ssi.workers", NULL)) {
+    ## --- Select scenarios
   scen  <- .select_scenarios(selector = scenarios, enforce_constraints = TRUE)
   nscen <- nrow(scen)
   if (nscen == 0L) stop("No scenarios selected.")
@@ -34,22 +37,27 @@ run_scenarios <- function(scenarios,
 
   ## --- Parallel plan (by scenario)
   use_future <- isTRUE(parallel) && requireNamespace("future.apply", quietly = TRUE)
+
   if (use_future) {
-    # pick a safe default if user didn't supply workers
-    if (is.null(workers) || !is.numeric(workers) || length(workers) != 1L || workers < 1L) {
-      workers <- tryCatch(parallelly::availableCores(omit = c("system","fallback")),
-                          error = function(e) 1L)
-      workers <- max(1L, min(workers - 1L, nscen))  # leave one core for the main session
-      if (!is.finite(workers) || workers < 1L) workers <- 1L
-    } else {
-      workers <- as.integer(min(max(workers, 1L), nscen))
+    # Avoid BLAS over-subscription when forking/spawning parallel R sessions
+    # (This is safe to do repeatedly; packages can still override if they want)
+    Sys.setenv(OMP_NUM_THREADS = "1", MKL_NUM_THREADS = "1")
+    if (requireNamespace("RhpcBLASctl", quietly = TRUE)) {
+      try(RhpcBLASctl::blas_set_num_threads(1), silent = TRUE)
     }
+
+    # Compute default: (cores - 1), capped by nscen, min 1
+    workers <- .auto_workers(nscen = nrow(scen), requested = workers)
+
     old_plan <- future::plan()
     on.exit(future::plan(old_plan), add = TRUE)
-    # multisession works on macOS/Windows/Linux
+
+    # multisession works across OSes (RStudio safe). If you ever want multicore on
+    # non-RStudio Unix, you can switch based on interactive/session checks.
     future::plan(future::multisession, workers = workers)
     message(sprintf("Parallel ON with %d worker(s).", future::nbrOfWorkers()))
   } else {
+    # Ensure sequential fallback is clear and reproducible
     message("Parallel OFF (running sequentially).")
   }
 

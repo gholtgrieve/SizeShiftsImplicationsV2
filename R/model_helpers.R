@@ -410,3 +410,22 @@
   invisible(run)
 }
 
+
+# Pick a sensible default worker count: (available cores - 1), capped by nscen, min 1.
+.auto_workers <- function(nscen, requested = NULL) {
+  # If the user explicitly provided workers, sanitize & cap by scenarios
+  if (!is.null(requested) && is.finite(requested)) {
+    return(as.integer(max(1L, min(nscen, requested))))
+  }
+
+  # Auto-detect cores robustly in local & scheduler environments
+  cores <- 1L
+  cores <- tryCatch(
+    parallelly::availableCores(omit = c("system", "fallback")),
+    error = function(e) 1L
+  )
+  # Leave one core for the main/session/OS; keep at least 1
+  as.integer(max(1L, min(nscen, cores - 1L)))
+}
+
+

@@ -10,6 +10,14 @@ These imports are used across the package. They generate NAMESPACE entries
 via roxygen and prevent R CMD check NOTES about “no visible global function
 definition for ...”.
 }
+\seealso{
+Useful links:
+\itemize{
+  \item \url{https://github.com/gholtgrieve/SizeShiftsImplicationsV2}
+  \item Report bugs at \url{https://github.com/gholtgrieve/SizeShiftsImplicationsV2/issues}
+}
+
+}
 \author{
 \strong{Maintainer}: Gordon Holtgrieve \email{gholtgrieve@gmail.com}
 
