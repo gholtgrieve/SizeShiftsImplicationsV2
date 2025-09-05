@@ -41,53 +41,36 @@
 #' @noRd
 #' @keywords internal
 
-.make_Ohlberger_figure_6 <- function(data, output_dir = ".") {
+.make_Ohlberger_figure_6 <- function(data,
+                                     output_dir = tempdir(),
+                                     file_basename = "Figure6",
+                                     width_in = 4,
+                                     height_in = 4) {
   stopifnot(inherits(data, "ssi_run"))
+  .validate_run_params(data$parameters)
 
-  # ---- constants / style -------------------------------------------------------
-  colors <- c(TRM = "darkgray", YPR = "deepskyblue3", DLM = "orange")
-  nyh_default <- 50L
-  file_basename <- "Figure6"
+  # ---- constants / style ------------------------------------------------------
+  nyh <- .get_nyh(data)           # historical length (e.g., 50)
+  obs_list <- .get_obs_list(data)
+  colors <- c(YPR = "deepskyblue3", DLM = "orange")  # TRM not plotted
 
-  # ---- scenarios ---------------------------------------------------------------
-  scen <- tibble::as_tibble(data$scenarios)
-  scen <- .standardize_scenario_labels(scen)
+  # ---- scenarios (standardize + keys) ----------------------------------------
+  scen <- .scenarios_from_ssirun(data)
 
-  # attach stable key matching nested results
-  if ("scen_num" %in% names(scen)) {
-    scen$scen_key <- paste0("scen_", scen$scen_num)
-  } else {
-    obs_names <- names(data$results$obs)
-    scen$scen_key <- if (!is.null(obs_names) && length(obs_names) == nrow(scen)) obs_names else paste0("scenario_", seq_len(nrow(scen)))
-  }
-
-  # filter to the captioned setting
+  # attach stable key matching nested results (already present from helper)
+  # filter to the captioned setting (paper): large-mesh, continued trends, MSY
   scen <- scen |>
     dplyr::filter(.data$selectivity == "large-mesh",
-                  .data$trends == "ASL trends continued",
-                  .data$factorMSY == "MSY")
+                  .data$trends      == "ASL trends continued",
+                  .data$factorMSY   == "MSY") |>
+    droplevels()
 
-  if (!nrow(scen)) stop("No scenarios after filtering to large-mesh, ASL trends continued, factorMSY == 'MSY'.")
-
-  # ---- helpers -----------------------------------------------------------------
-  obs_list <- data$results$obs
-  if (is.null(obs_list) || !length(obs_list)) {
-    stop("No observation lists found in `ssi_run` (run$results$obs).")
+  if (!nrow(scen)) {
+    stop("No scenarios after filtering to large-mesh, ASL trends continued, factorMSY == 'MSY'.")
   }
 
-  # mean over post-historical years for a single scenario, per iteration
-  mean_post_hist <- function(iter_obs, nyh = nyh_default, col) {
-    vapply(iter_obs, function(df) {
-      if (!is.data.frame(df) || !nrow(df) || is.null(df[[col]])) return(NA_real_)
-      n <- nrow(df)
-      start <- min(nyh + 1L, n)
-      if (start > n) return(NA_real_)
-      mean(df[[col]][start:n], na.rm = TRUE)
-    }, numeric(1))
-  }
-
-  # build lookups by cell, then pair each YPR/DLM to the TRM key
-  scen$cell <- do.call(paste, c(scen[c("selectivity","trends","factorMSY")], sep = "||"))
+  # build cell id for robust TRM pairing (matches paper's intent)
+  scen$cell <- do.call(paste, c(scen[c("trends","selectivity","factorMSY")], sep = "||"))
 
   trm_map <- scen |>
     dplyr::filter(.data$mgmt == "TRM") |>
@@ -99,7 +82,20 @@
 
   if (!nrow(cand)) stop("No YPR/DLM scenarios to compare against TRM in the filtered set.")
 
-  # ---- compute per-iteration % differences ------------------------------------
+  # ---- helper: per-iteration mean over fixed post-history window -------------
+  mean_post_hist <- function(iter_obs, nyh, col) {
+    vapply(iter_obs, function(df) {
+      if (!is.data.frame(df) || !nrow(df) || is.null(df[[col]])) return(NA_real_)
+      n    <- nrow(df)
+      from <- nyh + 1L
+      to   <- nyh + 50L
+      end  <- min(to, n)
+      if (from > n || end < from) return(NA_real_)
+      mean(df[[col]][from:end], na.rm = TRUE)
+    }, numeric(1))
+  }
+
+  # ---- compute per-iteration % diffs vs TRM for selected cells ----------------
   rows <- lapply(seq_len(nrow(cand)), function(i) {
     r <- cand[i, ]
     key_m <- r$scen_key
@@ -110,17 +106,16 @@
     it_r <- obs_list[[key_r]]
     if (is.null(it_m) || is.null(it_r)) return(NULL)
 
-    # per-iteration means
-    mh_m <- mean_post_hist(it_m, nyh_default, "obsHarv")
-    me_m <- mean_post_hist(it_m, nyh_default, "obsEsc")
-    mh_r <- mean_post_hist(it_r, nyh_default, "obsHarv")
-    me_r <- mean_post_hist(it_r, nyh_default, "obsEsc")
+    # per-iteration means over post-history window
+    mh_m <- mean_post_hist(it_m, nyh, "obsHarv")
+    me_m <- mean_post_hist(it_m, nyh, "obsEsc")
+    mh_r <- mean_post_hist(it_r, nyh, "obsHarv")
+    me_r <- mean_post_hist(it_r, nyh, "obsEsc")
 
-    # align lengths (defensive)
+    # align lengths defensively
     n <- min(length(mh_m), length(mh_r), length(me_m), length(me_r))
     if (n == 0) return(NULL)
 
-    # % differences per iteration
     d_h <- 100 * (mh_m[seq_len(n)] - mh_r[seq_len(n)]) / mh_r[seq_len(n)]
     d_e <- 100 * (me_m[seq_len(n)] - me_r[seq_len(n)]) / me_r[seq_len(n)]
 
@@ -135,13 +130,13 @@
     )
   })
 
-  df_plot <- dplyr::bind_rows(rows)
-  if (!nrow(df_plot)) stop("No paired iteration-wise differences computed for Figure 6.")
+  df <- dplyr::bind_rows(rows)
+  if (!nrow(df)) stop("No paired iteration-wise differences computed for Figure 6.")
 
-  df <- df_plot |>
-    .standardize_scenario_labels() |>
-    dplyr::filter(.data$mgmt %in% c("YPR", "DLM")) |>
-    dplyr::mutate(mgmt = factor(.data$mgmt, levels = c("YPR", "DLM"))) |>
+  # Keep only the two alternatives for this figure and lock legend order
+  df <- df |>
+    dplyr::filter(.data$mgmt %in% c("YPR","DLM")) |>
+    dplyr::mutate(mgmt = factor(.data$mgmt, levels = c("YPR","DLM"))) |>
     droplevels()
 
   # ---- plot (scatter with marginal densities) ---------------------------------
@@ -151,12 +146,12 @@
                  y = .data$diff_escapement_pct,
                  color = .data$mgmt)
   ) +
-    ggplot2::geom_vline(xintercept = 0, linewidth = 0.3) +
-    ggplot2::geom_hline(yintercept = 0, linewidth = 0.3) +
-    ggplot2::geom_point(size = 0.9, alpha = 0.9) +
-    ggplot2::scale_colour_manual(values = c(YPR = "deepskyblue3", DLM = "orange"), drop = FALSE) +
-    ggplot2::scale_x_continuous(limits = c(-100, 600), breaks = seq(-100, 600, 50)) +
-    ggplot2::scale_y_continuous(limits = c(-100, 600), breaks = seq(-100, 600, 50)) +
+    ggplot2::geom_hline(yintercept = 0, linewidth = 0.1, color = "black") +
+    ggplot2::geom_vline(xintercept = 0, linewidth = 0.1, color = "black") +
+    ggplot2::geom_point(size = 0.75, shape = 16) +
+    ggplot2::scale_colour_manual(values = colors, breaks = c("YPR","DLM"), drop = FALSE) +
+    ggplot2::scale_x_continuous(limits = c(-80, 190), breaks = seq(-50, 150, 50)) +
+    ggplot2::scale_y_continuous(limits = c(-80, 190), breaks = seq(-50, 150, 50)) +
     ggplot2::theme_classic() +
     ggplot2::labs(x = "Difference in mean harvest (%)",
                   y = "Difference in mean escapement (%)",
@@ -165,7 +160,7 @@
       axis.text.x = ggplot2::element_text(angle = 90, vjust = 0.5, hjust = 0.5),
       panel.border = ggplot2::element_rect(fill = NA, linewidth = 0.5),
       legend.background = ggplot2::element_rect(fill = "transparent"),
-      legend.position = c(0.15, 0.9),
+      legend.position = c(0.1, 0.95),
       legend.key.size = grid::unit(0.25, "cm"),
       legend.text = ggplot2::element_text(size = 8)
     )
@@ -174,17 +169,17 @@
   g <- ggExtra::ggMarginal(p, groupColour = TRUE, groupFill = TRUE,
                            margins = "both", size = 5, type = "density")
 
-  # ---- save & return -----------------------------------------------------------
-  outdir <- file.path(output_dir, "Figure6")
-  if (!dir.exists(outdir)) dir.create(outdir, recursive = TRUE, showWarnings = FALSE)
+  # ---- save & return ----------------------------------------------------------
+  outdir <- .ensure_outdir(output_dir, file_basename)
   plot_path <- file.path(outdir, paste0(file_basename, ".pdf"))
   data_path <- file.path(outdir, paste0(file_basename, ".csv"))
 
-  ggplot2::ggsave(plot_path, g, width = 4, height = 4, units = "in")
+  ggplot2::ggsave(plot_path, g, width = width_in, height = height_in, units = "in")
   readr::write_csv(df, data_path)
 
   message("Figure 6 saved to: ", plot_path)
   message("Data saved to: ", data_path)
 
-  return(invisible(list(plot = g, data = df)))
+  invisible(list(plot = g, data = df, outdir = outdir))
 }
+

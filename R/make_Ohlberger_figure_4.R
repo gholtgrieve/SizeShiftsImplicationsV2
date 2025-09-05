@@ -178,11 +178,17 @@
       legend.background = ggplot2::element_blank()
     )
 
-  # --- save --------------------------------------------------------------------
-  outdir <- .ensure_outdir(output_dir, file_basename)
-  ggplot2::ggsave(file.path(outdir, paste0(file_basename, ".pdf")),
-                  p, width = width_in, height = height_in, units = "in")
-  readr::write_csv(df_plot, file.path(outdir, paste0(file_basename, ".csv")))
+  # --- save & announce ---------------------------------------------------------
+  outdir    <- .ensure_outdir(output_dir, file_basename)
+  plot_path <- file.path(outdir, paste0(file_basename, ".pdf"))
+  data_path <- file.path(outdir, paste0(file_basename, ".csv"))
+
+  ggplot2::ggsave(plot_path, p, width = width_in, height = height_in, units = "in")
+  readr::write_csv(df_plot, data_path)
+
+  message("Figure 4 saved to: ", plot_path)
+  message("Data saved to: ", data_path)
 
   invisible(list(plot = p, data = df_plot, outdir = outdir))
+
 }

@@ -213,15 +213,17 @@
       legend.text  = ggplot2::element_text(size = 8)
     )
 
-  outdir <- .ensure_outdir(output_dir, file_basename)
+  # --- save & announce ---------------------------------------------------------
+  outdir    <- .ensure_outdir(output_dir, file_basename)
+  plot_path <- file.path(outdir, paste0(file_basename, ".pdf"))
+  data_path <- file.path(outdir, paste0(file_basename, ".csv"))
 
-  ggplot2::ggsave(
-    file.path(outdir, paste0(file_basename, ".pdf")),
-    p, width = width_in, height = height_in, units = "in"
-  )
+  ggplot2::ggsave(plot_path, p, width = width_in, height = height_in, units = "in")
+  readr::write_csv(dfp, data_path)
 
-  # Write summarized medians (what the figure shows)
-  readr::write_csv(dfp, file.path(outdir, paste0(file_basename, ".csv")))
+  message("Figure 3 saved to: ", plot_path)
+  message("Data saved to: ", data_path)
 
   invisible(list(plot = p, data = dfp, outdir = outdir))
+
 }
