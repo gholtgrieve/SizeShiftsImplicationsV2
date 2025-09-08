@@ -616,9 +616,7 @@ run_model <- function(config) {
       if (sim_recruits == "eggmass")   av_rep_out_by_age <- round(exp(.calc_reprod_output(av_mean_SaAs, allometry)[[2]]) * av_propF_by_age)
 
       ## selectivity by age (may be stochastic; seed for alignment)
-      age_selectivity <- withr::with_seed(seednum + 7400L,
-                                          .calc_selectivity(av_mean_SaAs, maxsel, sdsel)
-      )
+      age_selectivity <- withr::with_seed(seednum + 7400L,.calc_selectivity(av_mean_SaAs, maxsel, sdsel))
       age_selectivity <- age_selectivity / max(age_selectivity)
 
       ## ypr functions
