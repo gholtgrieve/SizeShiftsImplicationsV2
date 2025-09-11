@@ -1,0 +1,97 @@
+
+# pkgdown configuration for SizeShiftsImplicationsV2
+# Place this file at the PACKAGE ROOT, alongside DESCRIPTION / NAMESPACE.
+# After saving, build with: pkgdown::build_site()
+
+template:
+  bootstrap: 5
+
+url: https://gholtgrieve.github.io/SizeShiftsImplicationsV2/
+
+home:
+  title: "SizeShiftsImplicationsV2"
+  description: >
+    Management Strategy Evaluation (MSE) operating model and assessments for
+    salmon body-size shifts, reproducing and extending Ohlberger et al. (2025).
+  sidebar:
+    structure: [links, license, community, citation]
+
+authors:
+  Gordon Holtgrieve:
+    href: https://github.com/gholtgrieve
+
+navbar:
+  structure:
+    left: [reference, articles, news]
+    right: [search, github]
+  components:
+    reference:
+      text: Reference
+      href: reference/index.html
+    articles:
+      text: Articles
+      menu:
+        - text: "Model walkthrough (one scenario × one iteration)"
+          href: articles/model-walkthrough.html
+    news:
+      text: Changelog
+      href: news/index.html
+    github:
+      icon: fa-github
+      aria-label: GitHub repository
+      href: https://github.com/gholtgrieve/SizeShiftsImplicationsV2
+
+articles:
+  - title: "Model walkthrough"
+    contents:
+      - model-walkthrough
+
+# Build/reference index organization.
+# These sections use pkgdown selectors (starts_with/contains/matches).
+reference:
+  - title: "Run & scenarios"
+    contents:
+      - run_scenarios
+      - run_model
+      - build_config
+      - .select_scenarios
+      - starts_with("fun_run")     # if you adopt fun_ naming
+      - matches("scenario|config|seed|parameters")
+
+  - title: "Assessment methods (TRM / DLM / YPR)"
+    contents:
+      - matches("(TRM|DLM|YPR)")
+      - contains("S_msy")
+      - matches("sr_sim|SMSY|UMSY|S_max")
+
+  - title: "Demography, selectivity, and reproductive output"
+    contents:
+      - matches("selectivit|meanSaA|propfemale|ret(_|)by_age")
+      - matches("reprod|fecund|egg")
+      - starts_with(".calc_select")
+      - starts_with(".calc_reprod")
+
+  - title: "Observation & data objects"
+    contents:
+      - matches("^obs$|ObsDat|obserr|hobserr")
+      - matches("^data$|PopDat|Ret|Rec|Esc|Harv")
+
+  - title: "Summaries & helpers"
+    contents:
+      - starts_with("summarize")
+      - contains("50_year")
+      - matches("MSY_Goals|impl_errors")
+
+# Optional: if you use development mode
+  - title: "Utilities & converters"
+    contents:
+      - convert_legacy_to_ssi
+      - make_figures
+
+
+development:
+  mode: release
+  version_label: default
+
+# Ensure vignette appears as article even if not installed as a vignette yet
+# (pkgdown will knit it from the file path)

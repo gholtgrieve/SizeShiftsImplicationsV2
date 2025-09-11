@@ -1,0 +1,231 @@
+---
+title: "Inside one SSI iteration (one scenario × one iteration)"
+author: "SizeShiftsImplicationsV2 Team"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    number_sections: true
+  pdf_document: default
+vignette: >
+  %\VignetteIndexEntry{Inside one SSI iteration (one scenario × one iteration)}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, message=FALSE}
+# This vignette documents biology and code flow only—no parallel or figures.
+library(SizeShiftsImplicationsV2)
+```
+
+# 1. Goal and scope
+
+This vignette explains **the ordered steps inside a single simulation iteration for a single scenario**.
+It follows the path used in `run_model()` and its helpers: configure → simulate yearly biology (ages, sizes, sex) → apply management and selectivity → generate observations → periodically **assess** SR and update goals via **TRM**, **DLM**, or **YPR**.
+
+Throughout, the biological rationale and equations are aligned with Ohlberger et al. (2025), *Fish & Fisheries* (“Accounting for salmon body size declines in fishery management can reduce conservation risks”).
+
+# 2. Configuration objects (inputs to one iteration)
+
+A scenario row and a parameter profile are resolved into a fully validated `config` that `run_model()` consumes.
+Profiles (e.g. `"Ohlberger"`, `"Kuskokwim"`) list biological and management defaults, later overridden by scenario flags.
+
+*Where to look in code:* helpers that (i) build defaults, (ii) overlay scenario choices, (iii) stamp `j` (scenario), `k` (iteration), `seednum`, and (iv) validate before the run (e.g., `build_config()`, `default_config()`, `validate_config()` in your `R/` folder). The high-level runner `run_scenarios()` calls `run_model(config)` and later **packs** per-iteration outputs into the `ssi_run` result structure (lists: `para`, `sr_sim`, `fec`, `egg`, `S_msy`, `data`, `obs`, `ret_by_age`, `meanSaA`, `propfemale`, `selectivities_by_age`, `MSY_Goals`, `impl_errors`).
+
+```{r config-demo, eval=FALSE}
+scen <- .select_scenarios("all")[1, , drop = FALSE]     # pick one row
+cfg  <- build_config(params = "Ohlberger", scen_row = scen, j = 1, k = 1,
+                     seednum = 123, log_dir = tempdir())
+one  <- run_model(cfg)
+str(one, max.level = 1)
+```
+
+# 3. Annual biological core
+
+## 3.1 Unpack config (symbols used below)
+
+`run_model()` unpacks simulation knobs (ages, SR means, process/obs errors, selectivity, trend switches, etc.) for the iteration.
+
+## 3.2 Draw SR background for this iteration
+
+The operating model uses a **Ricker** stock–recruit (SR) with AR(1) residuals. Parameters may shift across regimes (low/high productivity) and are re-expressed for alternative reproductive units (fecundity, egg mass) when selected.
+
+\[
+\ln\!\left(\frac{R_y}{S_y}\right) \;=\; \ln\alpha \;-\; \beta S_y \;+\; \varepsilon_y,\qquad
+\varepsilon_y = \rho\,\varepsilon_{y-1} + \eta_y,\; \eta_y \sim \mathcal N\!\big(-\tfrac{1}{2}\sigma^2,\sigma^2\big).
+\]
+
+A helper simulates recruits from spawners (or reproductive output) with AR(1) on the log residual. Conceptually:
+
+```{r ricker-helper, eval=FALSE}
+.calc_ricker(spawn, sigma, alpha, beta, rho, last.eps, seed = NULL)
+# draws delta ~ N(-(sigma^2)/2, sigma), forms eps = rho*last.eps + sqrt(1-rho^2)*delta,
+# then R = exp(log(alpha) - beta*S + eps) * S.
+```
+
+## 3.3 Allocate state containers
+
+Matrices/arrays for **true** and **observed** quantities and age×sex compositions are preallocated (including `selectivities_by_age`).
+
+## 3.4 Apply demographic trends (historical + future)
+
+Time-varying **mean age**, **proportion female** (on logit scale with noise), and **size-at-age** are constructed. Stochastic anomalies are added to size-at-age.
+
+## 3.5 Initialize early years (1…`nyi`)
+
+The model seeds early escapements around \(S_{\mathrm{MSY,true}}\), generates brood-year recruits (spawners or reproductive output paths), builds initial age compositions, and forms the first observations.
+
+**Reproductive output helpers (for fecundity / egg mass)**
+
+Allometry maps female length \(L\) to fecundity and egg mass on the log scale:
+\[
+\log(\mathrm{fec}) = \log a_z + b_{\mathrm{fec}}\log L,\qquad
+\log(\mathrm{egg}) = \log a'_z + b_{\mathrm{egg}}\log L .
+\]
+
+Implementation pattern:
+```{r repro-output, eval=FALSE}
+.calc_reprod_output(size_mm, allometry_params)
+# returns list(fecundity, eggmass) at the individual or cohort level
+```
+
+# 4. Year loop within a review window (biology + fishery)
+
+Within each review window (Sec. 7), the model loops yearly to produce returns, apply management, simulate harvest with **length-based selectivity**, compute escapement, generate recruits, and produce **observations**.
+
+## 4.1 Total run, management rule, escapement
+
+The year’s total return is the sum across age×sex states. Management then targets a **fixed harvest rate**, a **harvest-rate goal**, or an **escapement goal**; implementation error is included on the appropriate scale and escapement is capped by the run size.
+
+```{r mgmt-skeleton, eval=FALSE}
+if (harvmgmt == "fix_harv_rate") {                      # with implementation error
+  # realized U via logit/logistic around target harvrate
+} else if (harvmgmt %in% c("umsy_goal","u_eq_goal","umsy_dlm_goal")) {
+  # realized U around target msygoal (harvest-rate goal)
+} else if (harvmgmt %in% c("smsy_goal","s_eq_goal","smsy_dlm_goal")) {
+  # realized S around target msygoal (escapement goal), min(escape, Ret)
+}
+```
+
+## 4.2 Size-selective harvest via gill-net selectivity
+
+Age-specific selectivity is a function of **size-at-age** that year. A selectivity vector `sel_y = .calc_selectivity(meanSaA[y, ], maxsel, sdsel)` is formed; if its max is invalid, a uniform selectivity fallback is used (and logged). Harvest is approximated by sampling individuals **without replacement** with probabilities proportional to selectivity, then redistributed to sexes by pre-harvest proportions. Per-year selectivities are recorded in `selectivities_by_age`.
+
+## 4.3 Recruits generated from spawners or reproductive output
+
+After harvest and escapement are determined, recruits are generated either from **spawners** (classic Ricker) or from **fecundity/egg mass** by enumerating female sizes in escapement and mapping to reproductive output, then applying the Ricker with \((\alpha_{\text{fec/egg}},\beta_{\text{fec/egg}})\).
+
+## 4.4 Observations with measurement error
+
+Observed escapement and harvest multiply the truths by **log-normal** errors; observed return is their sum. These are stored in `ObsDat$obsEsc`, `$obsHarv`, `$obsRet`.
+
+```{r obs-model, eval=FALSE}
+ObsDat$obsEsc[y]  <- PopDat$Esc[y]  * exp(rnorm(1, -0.5*obserr^2,  obserr))
+ObsDat$obsHarv[y] <- PopDat$Harv[y] * exp(rnorm(1, -0.5*hobserr^2, hobserr))
+ObsDat$obsRet[y]  <- ObsDat$obsEsc[y] + ObsDat$obsHarv[y]
+```
+
+# 5. Review schedule (when assessment occurs)
+
+The first review is at `firstrev` years after `nyi`, and subsequent reviews occur every `goalfreq` years. These are recorded as `review_years` in `ssi_run$parameters` and validated against `nyi`, `ny`, and `goalfreq`.
+
+# 6. Assessment & goal update (TRM / DLM / YPR)
+
+At each review, the model reconstructs the analysis window, fits an SR model (method depends on scenario’s `mgmt`/`est_method`), computes reference points \(S_{\mathrm{MSY}}\), \(U_{\mathrm{MSY}}\), \(S_{\max}\), and **updates** the escapement/harvest goal for the next window. Results are saved per iteration in:
+
+- `sr_sim` (α, β, ρ, σ at that review)
+- `S_msy` (time series of goal values across reviews)
+- method-specific logs
+
+These are later collected into `ssi_run$results`.
+
+## 6.1 TRM — Time-invariant Ricker (GLS with AR(1))
+
+**Model (linearised Ricker):**
+\[
+\ln\!\left(\frac{R_y}{S_y}\right) = \ln \alpha - \beta S_y + \varepsilon_y,\quad \varepsilon_y \sim \text{AR}(1).
+\]
+
+Bias-correct \(\alpha\) for log-normal AR(1) and rescale \(\beta\), then compute reference points with the **Lambert–W** expression:
+
+\[
+S_{\mathrm{MSY}} \;=\; \frac{1 - W\!\big(\exp(1 - \ln\alpha_{\text{corr}})\big)}{\beta_{\text{corr}}},\quad
+S_{\max}=1/\beta_{\text{corr}},\quad
+U_{\mathrm{MSY}} = 1 - W\!\big(\exp(1 - \ln\alpha_{\text{corr}})\big).
+\]
+
+```{r trm-skim, eval=FALSE}
+d <- data.frame(Esc = data$Esc, Rec = data$Rec)
+d$lnRS <- log(d$Rec / d$Esc)
+mod <- nlme::gls(lnRS ~ Esc, data = d, correlation = nlme::corAR1())
+sig <- summary(mod)$sigma
+phi <- coef(mod$modelStruct$corStruct, unconstrained = FALSE)
+loga <- summary(mod)$coefficients[1]
+a    <- exp(loga)
+b    <- -summary(mod)$coefficients[2]
+alpha_corr <- exp(loga + (0.5 * sig^2) / (1 - phi^2))
+beta_corr  <- b * (alpha_corr / a)
+S_MSY  <- (1 - gsl::lambert_W0(exp(1 - log(alpha_corr)))) / beta_corr
+U_MSY  <- (1 - gsl::lambert_W0(exp(1 - log(alpha_corr))))
+S_MAX  <- 1 / beta_corr
+```
+
+## 6.2 DLM — Time-varying parameters (Kalman filter/smoother)
+
+Let \(\ln(R/S) = \alpha_y - \beta_y S + \varepsilon_y\) with **state equations** for \(\alpha_y\) and/or \(\beta_y\) (random walks). A helper builds a regression DLM on `Esc`, MLE-fits \(V,W\), and returns smoothed \(\alpha_y,\beta_y\). \(S_{\mathrm{MSY}}\) is computed from recent means of \(\alpha_y,\beta_y\) (per the scenario’s rule).
+
+```{r dlm-skim, eval=FALSE}
+dat   <- data.frame(Esc = d$Esc, Rec = d$Rec)
+dlm_o <- .calc_DLMfit(dat, var_alpha = TRUE, var_beta = TRUE)   # α_y, β_y series
+tail_par <- tail(dlm_o$results, 5)
+alpha_hat <- mean(tail_par$alpha_y, na.rm = TRUE)
+beta_hat  <- mean(tail_par$beta_y,  na.rm = TRUE)
+S_MSY <- (1 - gsl::lambert_W0(exp(1 - log(alpha_hat)))) / beta_hat
+```
+
+## 6.3 YPR — Explicit demography & selectivity at equilibrium
+
+YPR replaces spawners \(S\) with **reproductive output** (egg mass or fecundity) as the stock unit, propagates selectivity and mortality to equilibrium, and finds the escapement (or harvest rate) that maximizes long-run yield.
+This reuses the **allometry** machinery used in simulation (`.calc_reprod_output()`) and an equilibrium optimizer (log-\(F\) search in the package).
+Per-review results are stored consistently with TRM/DLM.
+
+# 7. What is recorded for this iteration?
+
+Returned (then collated across iterations and scenarios):
+
+- **Parameters used** (`para`)
+- **SR fits per review** (`sr_sim` with α, β, ρ, σ)
+- **Reference points across reviews** (`S_msy`)
+- **True trajectories** (`data`: Ret, Rec, Esc, Harv, RepOut)
+- **Observed trajectories** (`obs`: `obsEsc`, `obsHarv`, `obsRet`)
+- **Demography/selectivity** (`ret_by_age`, `meanSaA`, `propfemale`, `selectivities_by_age`)
+- **Management bookkeeping** (`MSY_Goals`, `impl_errors`)
+
+These lists are assembled into `ssi_run$results` with scenario/iteration keys.
+
+# 8. Minimal “single iteration” driver (for readers to run)
+
+```{r single-iter-run, eval=FALSE}
+scen1 <- .select_scenarios("all")[1, , drop = FALSE]
+cfg   <- build_config("Ohlberger", scen1, j = 1, k = 1, seednum = 101, log_dir = tempdir())
+one   <- run_model(cfg)
+
+# Peek
+names(one)
+str(one$sr_sim)   # α, β, ρ, σ at last review
+str(one$S_msy)    # S_MSY time series across reviews
+head(one$data)    # true time series
+head(one$obs)     # observed time series
+```
+
+# 9. Crosswalk pointers (code navigation)
+
+- **SR fit (TRM)**: linearised Ricker, AR(1) GLS, bias correction, Lambert–W reference points.
+- **Alternative reproductive units**: fecundity / egg mass; allometry + SR.
+- **Selectivity + sampling**: harvest without replacement with unequal probabilities; per-year selectivity saved.
+- **Observation model**: log-normal errors on Esc and Harv; observed Ret = sum.
+- **Results collation**: iteration-level lists packed into the `ssi_run` container.
+
+# References
+
+Ohlberger, J., Schindler, D.E., & Staton, B.A. (2025). Accounting for salmon body size declines in fishery management can reduce conservation risks. *Fish and Fisheries*.
