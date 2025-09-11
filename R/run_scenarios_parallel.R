@@ -61,6 +61,13 @@ run_scenarios <- function(scenarios,
     message("Parallel OFF (running sequentially).")
   }
 
+  # --- Logging directory (shared across workers) --------------------------------
+  log_dir <- file.path(output_dir, "logs")
+  options(ssi.log_dir = log_dir)  # used by fun_log_dir()
+  dir.create(log_dir, recursive = TRUE, showWarnings = FALSE)
+  # ------------------------------------------------------------------------------
+
+
   # Extract config parameters for recording later
   profile0 <- resolve_profile(params)  # or however you turn "Ohlberger" into a config list
 
@@ -121,7 +128,8 @@ run_scenarios <- function(scenarios,
           scen_row = scen_row,
           j        = j,
           k        = k,
-          seednum  = seednum
+          seednum  = seednum,
+          log_dir = log_dir
         )
 
         # run_model() should use withr::with_seed(seednum, { ... }) internally
@@ -269,6 +277,12 @@ run_scenarios <- function(scenarios,
   rds_path <- file.path(output_dir, paste0("run_", time.save, ".rds"))
   saveRDS(run_out, rds_path)
   openxlsx::write.xlsx(scen, file = file.path(output_dir, paste0("run_", time.save, "_scen.xlsx")))
+
+  # --- Merge per-worker log shards into final CSVs ------------------------------
+  if (exists("fun_merge_all_logs", mode = "function")) {
+    try(fun_merge_all_logs(log_dir, remove_shards = TRUE), silent = TRUE)
+  }
+  # ------------------------------------------------------------------------------
 
   message(sprintf("Completed %d scenarios × %d iterations in %s",
                   nscen, niter, format(end.time - start.time)))

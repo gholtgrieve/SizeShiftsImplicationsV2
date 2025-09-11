@@ -60,7 +60,8 @@ Imports:
     withr (>= 2.5.0),
     future,
     future.apply,
-    parallelly
+    parallelly,
+    filelock
 Suggests:
     testthat (>= 3.2.0),
     knitr,

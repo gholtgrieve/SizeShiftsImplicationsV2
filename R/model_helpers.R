@@ -429,3 +429,43 @@
 }
 
 
+`%||%` <- function(x, y) if (!is.null(x)) x else y
+first_non_null <- function(...) { for (v in list(...)) if (!is.null(v)) return(v); return(NA) }
+
+append_ypr_log <- function(path, row_list) {
+  df <- as.data.frame(row_list, check.names = FALSE)
+  dir.create(dirname(path), recursive = TRUE, showWarnings = FALSE)
+
+  lock_path <- paste0(path, ".lock")
+
+  if (requireNamespace("filelock", quietly = TRUE)) {
+    lk <- filelock::lock(lock_path, timeout = Inf)
+    on.exit(filelock::unlock(lk), add = TRUE)
+
+    has_file <- file.exists(path)
+    write.table(
+      df, file = path, sep = ",",
+      row.names = FALSE,
+      col.names = !has_file,   # header only on first write (checked while locked)
+      append   = has_file,
+      qmethod  = "double"
+    )
+  } else {
+    # Fallback if filelock isn't installed: shard per worker (see Option B)
+    shard <- file.path(
+      dirname(path),
+      sprintf("%s.pid%s.csv",
+              tools::file_path_sans_ext(basename(path)),
+              Sys.getpid())
+    )
+    has_file <- file.exists(shard)
+    write.table(
+      df, file = shard, sep = ",",
+      row.names = FALSE,
+      col.names = !has_file,
+      append   = has_file,
+      qmethod  = "double"
+    )
+  }
+}
+

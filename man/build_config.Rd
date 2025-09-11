@@ -4,7 +4,7 @@
 \alias{build_config}
 \title{Build a ready-to-run config for run_model()}
 \usage{
-build_config(params, scen_row, j, k, seednum)
+build_config(params, scen_row, j, k, seednum, log_dir)
 }
 \arguments{
 \item{params}{Profile name or list (see resolve_profile())}

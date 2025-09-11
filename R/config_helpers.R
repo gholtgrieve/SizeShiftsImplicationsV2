@@ -85,12 +85,13 @@ resolve_profile <- function(params) {
 #' @param seednum Integer seed for the run
 #' @return A validated config list
 #' @keywords internal
-build_config <- function(params, scen_row, j, k, seednum) {
+build_config <- function(params, scen_row, j, k, seednum, log_dir) {
   profile <- resolve_profile(params)
   cfg <- utils::modifyList(default_config(), profile)
   cfg <- apply_scenario_overrides(cfg, scen_row)
   cfg$j <- as.integer(j)
   cfg$k <- as.integer(k)
   cfg$seednum <- as.integer(seednum)
+  cfg$log_dir <- log_dir    # ensure run_model() logging goes to outputs/logs
   validate_config(cfg)
 }
