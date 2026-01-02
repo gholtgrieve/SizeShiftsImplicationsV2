@@ -13,7 +13,7 @@ definition for ...”.
 \seealso{
 Useful links:
 \itemize{
-  \item \url{https://gholtgrieve.github.io/SizeShiftsImplicationsV2}
+  \item \url{https://gholtgrieve.github/SizeShiftsImplicationsV2}
   \item Report bugs at \url{https://github.com/gholtgrieve/SizeShiftsImplicationsV2/issues}
 }
 

@@ -72,7 +72,7 @@ Suggests:
     digest
 VignetteBuilder: knitr
 Config/testthat/edition: 3
-URL: https://gholtgrieve.github.io/SizeShiftsImplicationsV2
+URL: https://gholtgrieve.github/SizeShiftsImplicationsV2
 BugReports: https://github.com/gholtgrieve/SizeShiftsImplicationsV2/issues
 
 

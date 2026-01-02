@@ -1,16 +1,12 @@
 # SizeShiftsImplicationsV2
 
-> Fishery management implications of demographic changes in Chinook salmon — packaged for reproducibility, speed, and extensibility.
+> Fishery management implications of demographic changes in Chinook salmon.
 
 ## Overview
 
-**SizeShiftsImplicationsV2** is an R package that implements a management strategy evaluation (MSE) framework for exploring how shifts in age, sex, and length composition propagate through stock–recruit dynamics and harvest control rules originally described in O.lberger et al. (2025). It provides tools to:
-
-- select scenario grids and run Monte Carlo simulations (optionally in parallel),
-- save results into a compact, structured **`ssi_run`** object,
-- reproduce publication-quality figures for both the **Ohlberger** study (Figures 2–7) and a new **Kuskokwim River** analysis (Figures A–E).
-
-This package accompanies and extends analyses related to Ohlberger et al. (2025) and is designed to make those workflows easier to share, reproduce, and adapt.
+**SizeShiftsImplicationsV2** is an R package that implements a management strategy evaluation (MSE) framework for exploring how shifts in age, sex, and length composition propagate through 
+stock–recruit dynamics and harvest control rules. This package accompanies and extends analyses related to Ohlberger et al. (2025) and is designed to make those workflows easier to share, 
+reproduce, and adapt.
 
 ## Relationship to the original project
 
@@ -127,6 +123,4 @@ If this package or its figures contributed to your work, please cite:
 
 ## License
 
-GPL-3.0 (same as this package). See `LICENSE`.
-
-
+GPL-3.0. See `LICENSE`.
