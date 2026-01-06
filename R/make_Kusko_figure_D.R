@@ -6,8 +6,8 @@
 #' Monte Carlo iterations; error bars depict 50% (thick; q25–q75) and 80%
 #' (thin; q10–q90) intervals for both axes. Facets: rows = trends
 #' ("no trends", "ASL trends stabilized", "ASL trends continued"); columns =
-#' factorMSY ("liberal", "MSY", "precautionary"). Labels and styling follow
-#' Figure A helpers and theme.
+#' management ("TRM", "YPR", "DLM" ); colors = factorMSY ("liberal", "MSY", "precautionary").
+#' Labels and styling follow Figure A helpers and theme.
 #'
 #' @param data `ssi_run` from `run_scenarios()`
 #' @param output_dir Directory to save outputs (default `"."`)
