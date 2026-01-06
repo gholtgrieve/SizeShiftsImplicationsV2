@@ -53,27 +53,27 @@
     plot_df,
     ggplot2::aes(
       x = .data$harv_mean,               # x = Harvest (1000s)
-      y = .data$p0_mean,                 # y = Probability of zero harvest (0–1)
+      y = .data$.data$p0_mean,            # y = Average probability of zero harvest in any given year
       color = .data$mgmt                 # (4) color by mgmt
     )
   ) +
     # 80% intervals (thin)
     ggplot2::geom_errorbar(
       ggplot2::aes(ymin = .data$p0_q10, ymax = .data$p0_q90),
-      linewidth = 0.4, alpha = 0.9
+      linewidth = 0.4, alpha = 0.9, width = 0
     ) +
     ggplot2::geom_errorbarh(
       ggplot2::aes(xmin = .data$harv_q10, xmax = .data$harv_q90),
-      height = 0, linewidth = 0.4, alpha = 0.9
+      width = 0, linewidth = 0.4, alpha = 0.9
     ) +
     # 50% intervals (thick)
     ggplot2::geom_errorbar(
       ggplot2::aes(ymin = .data$p0_q25, ymax = .data$p0_q75),
-      linewidth = 0.9
+      linewidth = 0.9, width = 0
     ) +
     ggplot2::geom_errorbarh(
       ggplot2::aes(xmin = .data$harv_q25, xmax = .data$harv_q75),
-      height = 0, linewidth = 0.9
+      width = 0, linewidth = 0.9
     ) +
     # Points
     ggplot2::geom_point(shape = 1, size = 2.5, fill = NA, color = "black") +
@@ -98,7 +98,7 @@
     ) +
     ggplot2::labs(
       x = "Harvest (1000s)",
-      y = "P(Zero harvest, 50-yr avg) (%)"
+      y = "P(Zero harvest, 50-yr median) (%)"
     ) +
     ggplot2::theme_classic() +
     ggplot2::theme(
