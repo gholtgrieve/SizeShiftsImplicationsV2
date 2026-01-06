@@ -71,26 +71,27 @@
     ggplot2::aes(
       x = .data$esc_mean,
       y = .data$harv_mean,
-      color = .data$factorMSY
+      color = .data$mgmt, # Map colors to management strategy
+      group = .data$mgmt # Group for consistent visual representation
     )
   ) +
     # 80% intervals (thin): q10–q90
     ggplot2::geom_errorbar(
       ggplot2::aes(ymin = .data$harv_q10, ymax = .data$harv_q90),
-      linewidth = 0.4, alpha = 0.9
+      linewidth = 0.4, alpha = 0.9, height = NULL
     ) +
     ggplot2::geom_errorbarh(
       ggplot2::aes(xmin = .data$esc_q10, xmax = .data$esc_q90),
-      height = 0, linewidth = 0.4, alpha = 0.9
+      height = 0, linewidth = 0.4, alpha = 0.9, height = NULL
     ) +
     # 50% intervals (thick): q25–q75
     ggplot2::geom_errorbar(
       ggplot2::aes(ymin = .data$harv_q25, ymax = .data$harv_q75),
-      linewidth = 0.9
+      linewidth = 0.9, height = NULL
     ) +
     ggplot2::geom_errorbarh(
       ggplot2::aes(xmin = .data$esc_q25, xmax = .data$esc_q75),
-      height = 0, linewidth = 0.9
+      height = 0, linewidth = 0.9, height = NULL
     ) +
     # 1:1 diagonal line (drawn within each panel)
     ggplot2::geom_abline(slope = 1, intercept = 0,
@@ -111,7 +112,7 @@
     ggplot2::coord_equal() +
     ggplot2::facet_grid(
       rows = ggplot2::vars(.data$trends),      # rows: trends (unchanged)
-      cols = ggplot2::vars(.data$mgmt),        # cols: mgmt (TRM, YPR, DLM)
+      cols = ggplot2::vars(.data$factorMSY),    # factorMSY: liberal, MSY, precautionary
       scales = "fixed",
       switch = "y"
     ) +
