@@ -72,27 +72,25 @@
       x = .data$esc_mean,
       y = .data$harv_mean,
       color = .data$factorMSY, # Map colors to factorMSY
-      group = .data$factorMSY # Group for consistent visual representation
     )
   ) +
-    ggplot2::scale_color_manual(values = colors_fMSY) +
     # 80% intervals (thin): q10–q90
     ggplot2::geom_errorbar(
       ggplot2::aes(ymin = .data$harv_q10, ymax = .data$harv_q90),
-      linewidth = 0.4, alpha = 0.9, height = NULL
+      linewidth = 0.4, alpha = 0.9, width = 0
     ) +
     ggplot2::geom_errorbarh(
       ggplot2::aes(xmin = .data$esc_q10, xmax = .data$esc_q90),
-      height = 0, linewidth = 0.4, alpha = 0.9, height = NULL
+      width = 0, linewidth = 0.4, alpha = 0.9
     ) +
     # 50% intervals (thick): q25–q75
     ggplot2::geom_errorbar(
       ggplot2::aes(ymin = .data$harv_q25, ymax = .data$harv_q75),
-      linewidth = 0.9, height = NULL
+      linewidth = 0.9, width = 0
     ) +
     ggplot2::geom_errorbarh(
       ggplot2::aes(xmin = .data$esc_q25, xmax = .data$esc_q75),
-      height = 0, linewidth = 0.9, height = NULL
+      width = 0, linewidth = 0.9
     ) +
     # 1:1 diagonal line (drawn within each panel)
     ggplot2::geom_abline(slope = 1, intercept = 0,
@@ -100,7 +98,7 @@
     # Points (central)
     ggplot2::geom_point(shape = 1, size = 2.5, fill = NA, color = "black") +
     ggplot2::geom_point(size = 2.2) +
-    ggplot2::scale_colour_manual(values = colors_fMSY, guide = "none") +
+    ggplot2::scale_colour_manual(values = colors_fMSY, name = NULL) +
     ggplot2::scale_y_continuous(
       limits = lims_equal, expand = c(0.07, 0.07),
       labels = function(y) y / 1000
@@ -112,8 +110,8 @@
     # Keep axes 1:1 visually too
     ggplot2::coord_equal() +
     ggplot2::facet_grid(
-      rows = ggplot2::vars(.data$trends),      # rows: trends (unchanged)
-      cols = ggplot2::vars(.data$factorMSY),    # factorMSY: liberal, MSY, precautionary
+      rows = ggplot2::vars(.data$trends),  # trends: no tren, ASL stabilized, ASL continued
+      cols = ggplot2::vars(.data$mgmt),    # mgmt: TRM, YPR, DLM
       scales = "fixed",
       switch = "y"
     ) +
