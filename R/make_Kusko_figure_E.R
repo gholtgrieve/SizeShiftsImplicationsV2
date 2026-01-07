@@ -34,12 +34,12 @@
   plot_df <- .make_50yr_hp_tidy(data, summary_list, scen_df, statistic) |>
     dplyr::filter(
       .data$selectivity == !!selectivity_filter,
-      .data$factorMSY == "precautionary"                 # (1) keep only precautionary
+      .data$trends == "ASL trends continued"                 # (1) keep only ASL trends continued
     ) |>
     dplyr::mutate(
-      trends = forcats::fct_relevel(                      # (3) facet columns order
-        .data$trends,
-        "no trends", "ASL trends stabilized", "ASL trends continued"
+      factorMSY = forcats::fct_relevel(                      # (3) facet columns order
+        .data$factorMSY,
+        "liberal", "MSY", "precautionary"
       ),
       mgmt = forcats::fct_relevel(.data$mgmt, "TRM", "YPR", "DLM")
     )
@@ -89,10 +89,10 @@
       limits = c(0, NA),
       labels = scales::percent_format(accuracy = 1)     # show probability as %
     ) +
-    # (2) remove factorMSY from facets; (3) columns = trends, single row
+    # (2) remove trends from facets; (3) columns = factorMSY, single row
     ggplot2::facet_grid(
       rows = NULL,
-      cols = ggplot2::vars(.data$trends),
+      cols = ggplot2::vars(.data$factorMSY),
       scales = "fixed",
       switch = "y"
     ) +
