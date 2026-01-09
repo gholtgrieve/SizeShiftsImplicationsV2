@@ -431,3 +431,62 @@
   return(MeanByYear)
 }
 
+
+
+
+#' Helper: Compute closure metrics (probability and cumulative)
+#'
+#' Calculates both probability of zero harvest AND cumulative closures by year.
+#' This allows easy switching between metrics without recomputing.
+#'
+#' @param obs_list Simulation results from `run_scenarios()`.
+#' @param scen_names Scenario labels.
+#' @param iter_names Iteration labels.
+#' @param year_rows_fun Function to extract last 50 years from a simulation data.frame.
+#' @param scen_df Scenario metadata.
+#' @return Tidy data.frame with `scen`, `year`, `prob_zero_harvest`,
+#'   `mean_cumulative_closures`, `median_cumulative_closures`, etc.
+#' @keywords internal
+.compute_closure_metrics <- function(obs_list, scen_names, iter_names, year_rows_fun, scen_df) {
+  dt_list <- lapply(seq_along(obs_list), function(i) {
+    sims <- obs_list[[i]]
+    data.table::rbindlist(lapply(seq_along(sims), function(j) {
+      sim <- sims[[j]]
+      if (!is.data.frame(sim) || is.null(sim$obsHarv)) return(NULL)
+      rows <- year_rows_fun(sim)
+
+      # Identify zero harvest years (closures)
+      harvest_values <- sim$obsHarv[rows]
+      zero_harvest_indicator <- harvest_values == 0
+
+      # Calculate cumulative count of closures
+      cumulative_closures <- cumsum(zero_harvest_indicator)
+
+      data.table::data.table(
+        scen   = scen_names[i],
+        iter   = iter_names[j],
+        year   = seq_len(length(rows)),
+        obsHarv = harvest_values,
+        cumulative_closures = cumulative_closures
+      )
+    }), fill = TRUE, use.names = TRUE)
+  })
+
+  dt_all <- data.table::rbindlist(dt_list, fill = TRUE, use.names = TRUE)
+  dt_all$zeroHarvest <- ifelse(is.na(dt_all$obsHarv), NA, dt_all$obsHarv == 0)
+
+  # Aggregate: compute BOTH probability AND cumulative metrics
+  tibble::as_tibble(dt_all) |>
+    dplyr::group_by(.data$scen, .data$year) |>
+    dplyr::summarise(
+      n_zero_harvest = sum(.data$zeroHarvest == TRUE, na.rm = TRUE),
+      n_obs          = sum(!is.na(.data$zeroHarvest)),
+      prob_zero_harvest = n_zero_harvest / n_obs,
+      mean_cumulative_closures = mean(.data$cumulative_closures, na.rm = TRUE),
+      median_cumulative_closures = median(.data$cumulative_closures, na.rm = TRUE),
+      q25_cumulative_closures = stats::quantile(.data$cumulative_closures, 0.25, na.rm = TRUE),
+      q75_cumulative_closures = stats::quantile(.data$cumulative_closures, 0.75, na.rm = TRUE),
+      .groups = "drop"
+    ) |>
+    dplyr::left_join(scen_df, by = "scen")
+}

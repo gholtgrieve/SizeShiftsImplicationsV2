@@ -1,14 +1,16 @@
-#' Generate Figure C: Time series of escapement, harvest, and probability of zero harvest
+#' Generate Figure C: Time series of escapement, harvest, and closure metrics
 #'   by trend, harvest strategy, and management
 #'
 #' Accepts an `ssi_run` object from `run_scenarios()`.
 #'
 #' Internally calls `.summarize_by_year()` (which defaults to the last 50 years
-#' for `ssi_run` inputs). Produces ribbons for central intervals and overlays a
-#' smoothed (5-year rolling mean) probability of zero harvest on the secondary axis.
+#' for `ssi_run` inputs). Produces ribbons for central intervals and overlays
+#' either probability of zero harvest or cumulative closures on the secondary axis.
 #'
 #' @param data `ssi_run` object.
 #' @param output_dir Directory to save plots and data (default: current working directory).
+#' @param closure_metric Character: "probability" (default, original behavior with 5-year smoothing)
+#'   or "cumulative" (cumulative count of closures, no smoothing).
 #'
 #' @return A list with:
 #'   - `data`: tidy data.frame used for plotting
@@ -16,13 +18,18 @@
 #' @noRd
 #' @keywords internal
 
-.make_Kusko_figure_C <- function(data, output_dir = ".") {
+.make_Kusko_figure_C <- function(data, output_dir = ".", closure_metric = "cumulative", statistic = "median") {
+
+  # Validate parameters
+  closure_metric <- match.arg(closure_metric, choices = c("probability", "cumulative"))
+  statistic <- match.arg(statistic, choices = c("mean", "median"))
+
   summary_stats <- c(mean = "Mean", ymin = "25%", ymax = "75%")
   selectivity_filter <- "unselective"
   colors <- c("darkgray", "deepskyblue3", "orange")
   file_basename <- "FigureC"
 
-  #Make and set output directory
+  # Make and set output directory
   output_dir <- file.path(output_dir, file_basename)
   if (!dir.exists(output_dir)) dir.create(output_dir, recursive = TRUE)
 
@@ -51,45 +58,81 @@
     rows[rows >= 1L]
   }
 
+  # Create summary dataframes
   summary_df <- .make_tidy_summary(summary_list, scen_df_all, scen_names, summary_stats)
-  zero_harvest_df <- .compute_zero_harvest(obs_list, scen_names, iter_names, year_rows_fun, scen_df_all)
-  plot_df <- .prepare_plot_df(summary_df, zero_harvest_df, selectivity_filter)
+  closure_df <- .compute_closure_metrics(obs_list, scen_names, iter_names, year_rows_fun, scen_df_all)
+  plot_df <- .prepare_plot_df(summary_df, closure_df, selectivity_filter)
 
-  half_primary <- 220000 / 2
-  prob_smooth_df <- plot_df |>
-    dplyr::filter(.data$label == "Harvest (1000s)") |>
-    dplyr::arrange(.data$scen, .data$mgmt, .data$trends, .data$factorMSY, .data$year) |>
-    dplyr::group_by(.data$scen, .data$mgmt, .data$trends, .data$factorMSY) |>
-    dplyr::mutate(prob_smooth = zoo::rollmean(.data$prob_zero_harvest, k = 5, fill = NA, align = "center")) |>
-    dplyr::ungroup()
+  # Determine scaling and smoothing based on closure_metric
+  if (closure_metric == "probability") {
+    #  5-year rolling mean on probability
+    metric_df <- plot_df |>
+      dplyr::filter(.data$label == "Harvest (1000s)") |>
+      dplyr::arrange(.data$scen, .data$mgmt, .data$trends, .data$factorMSY, .data$year) |>
+      dplyr::group_by(.data$scen, .data$mgmt, .data$trends, .data$factorMSY) |>
+      dplyr::mutate(plot_value = zoo::rollmean(.data$prob_zero_harvest, k = 5, fill = NA, align = "center")) |>
+      dplyr::ungroup()
+
+    half_primary <- 220000 / 2
+    scaling_factor <- half_primary  # Scale 0-1 probability to 0-110000
+    secondary_breaks <- seq(0, 1, 0.5)
+    secondary_labels <- scales::percent_format(accuracy = 1)
+    line_label <- "Probability of zero harvest\n(right axis)"
+
+  } else {  # cumulative
+    # New behavior: cumulative closures, no smoothing
+    if (statistic == "mean") {
+      metric_df <- plot_df |>
+        dplyr::filter(.data$label == "Harvest (1000s)") |>
+        dplyr::arrange(.data$scen, .data$mgmt, .data$trends, .data$factorMSY, .data$year) |>
+        dplyr::mutate(plot_value = .data$mean_cumulative_closures)
+    } else {
+      metric_df <- plot_df |>
+        dplyr::filter(.data$label == "Harvest (1000s)") |>
+        dplyr::arrange(.data$scen, .data$mgmt, .data$trends, .data$factorMSY, .data$year) |>
+        dplyr::mutate(plot_value = .data$median_cumulative_closures)
+    }
+
+    max_closures <- max(metric_df$plot_value, na.rm = TRUE)
+    secondary_max <- if(max_closures <= 25) 25 else 50
+    scaling_factor <- 220000 / secondary_max
+    secondary_breaks <- seq(0, secondary_max, by = if(secondary_max == 25) 5 else 10)
+    secondary_labels <- function(x) as.character(round(x))
+    line_label <- "Cumulative fishery closures\n(right axis)"
+  }
 
   if (!dir.exists(output_dir)) dir.create(output_dir, recursive = TRUE)
 
-  plot_component <- function(df, mgmt_name) {
-    ggplot2::ggplot(df |> dplyr::filter(.data$mgmt == mgmt_name),
-                    ggplot2::aes(x = .data$year, y = .data$mean, ymin = .data$ymin, ymax = .data$ymax,
-                                 color = forcats::fct_inorder(.data$label),
-                                 group = .data$label, fill = .data$label)) +
+  plot_component <- function(df, mgmt_name, metric_data) {
+    # Build base plot
+    p <- ggplot2::ggplot(df |> dplyr::filter(.data$mgmt == mgmt_name),
+                         ggplot2::aes(x = .data$year, y = .data$mean, ymin = .data$ymin, ymax = .data$ymax,
+                                      color = forcats::fct_inorder(.data$label),
+                                      group = .data$label, fill = .data$label)) +
       ggplot2::geom_ribbon(alpha = 0.3, color = NA, show.legend = FALSE) +
-      ggplot2::geom_line(linewidth = 0.8) +
-      ggplot2::geom_line(
-        data = prob_smooth_df |> dplyr::filter(.data$mgmt == mgmt_name),
-        ggplot2::aes(x = .data$year, y = .data$prob_smooth * half_primary, color = "Probability of zero harvest\n(right axis)"),
-        linewidth = 0.7,
-        inherit.aes = FALSE
-      ) +
+      ggplot2::geom_line(linewidth = 0.8)
+
+    # Add the metric line
+    p <- p + ggplot2::geom_line(
+      data = metric_data |> dplyr::filter(.data$mgmt == mgmt_name),
+      ggplot2::aes(x = .data$year,
+                   y = .data$plot_value * scaling_factor,
+                   color = line_label),
+      linewidth = 0.7,
+      inherit.aes = FALSE
+    ) +
       ggplot2::scale_colour_manual(
-        values = c(
-          "Probability of zero harvest\n(right axis)" = colors[3],
-          "Escapement (1000s)"         = colors[2],
-          "Harvest (1000s)"            = colors[1]
+        values = stats::setNames(
+          c(colors[3], colors[2], colors[1]),
+          c(line_label, "Escapement (1000s)", "Harvest (1000s)")
         ),
-        breaks = c("Harvest (1000s)", "Escapement (1000s)", "Probability of zero harvest\n(right axis)")
+        breaks = c("Harvest (1000s)", "Escapement (1000s)", line_label)
       ) +
       ggplot2::scale_fill_manual(
         values = c(
           "Escapement (1000s)" = colors[2],
-          "Harvest (1000s)"    = colors[1]
+          "Harvest (1000s)"    = colors[1],
+          line_label           = colors[3]
         )
       ) +
       ggplot2::scale_y_continuous(
@@ -98,10 +141,10 @@
         breaks = seq(0, 220000, 50000),
         labels = ~ .x / 1000,
         sec.axis = ggplot2::sec_axis(
-          ~ . / half_primary,
+          ~ . / scaling_factor,
           name = NULL,
-          breaks = seq(0, 1, 0.5),
-          labels = scales::percent_format(accuracy = 1)
+          breaks = secondary_breaks,
+          labels = secondary_labels
         )
       ) +
       ggplot2::scale_x_continuous(name = "Year", limits = c(1, length(year_names)), breaks = seq(0, length(year_names), 10)) +
@@ -130,7 +173,7 @@
     p
   }
 
-  plots <- purrr::map(mgmt_names, ~ plot_component(plot_df, .x))
+  plots <- purrr::map(mgmt_names, ~ plot_component(plot_df, .x, metric_df))
   names(plots) <- mgmt_names
 
   csv_path <- file.path(output_dir, paste0(file_basename, ".csv"))
@@ -142,11 +185,18 @@
     message("Figure C plot saved to: ", path)
   }
 
-  # Report saved CSV path
+  # Report saved CSV path and metrics reported
   message("Data saved to: ", csv_path)
+  message("Closure metric used: ", closure_metric)
+  if (closure_metric == "cumulative") {
+    message("Statistic used for cumulative closures: ", statistic)
+  }
 
-  return(invisible(list(data = plot_df, plots = plots)))
+  return(invisible(list(data = plot_df, plots = plots, closure_metric = closure_metric)))
 }
+
+
+
 
 #' Helper: Tidy simulation summaries for plotting
 #'
@@ -190,59 +240,24 @@
     dplyr::mutate(label = factor(.data$label, levels = c("Harvest (1000s)", "Escapement (1000s)")))
 }
 
-#' Helper: Compute zero harvest probability
-#'
-#' Calculates proportion of iterations with zero observed harvest per scenario/year.
-#'
-#' @param obs_list Simulation results from `run_scenarios()`.
-#' @param scen_names Scenario labels.
-#' @param iter_names Iteration labels.
-#' @param year_rows_fun Function to extract last 50 years from a simulation data.frame.
-#' @param scen_df Scenario metadata.
-#' @return Tidy data.frame with `scen`, `year`, `prob_zero_harvest`, etc.
-#' @keywords internal
-.compute_zero_harvest <- function(obs_list, scen_names, iter_names, year_rows_fun, scen_df) {
-  dt_list <- lapply(seq_along(obs_list), function(i) {
-    sims <- obs_list[[i]]
-    data.table::rbindlist(lapply(seq_along(sims), function(j) {
-      sim <- sims[[j]]
-                  if (!is.data.frame(sim) || is.null(sim$obsHarv)) return(NULL)
-                  rows <- year_rows_fun(sim)
-                  data.table::data.table(
-                    scen   = scen_names[i],
-                    iter   = iter_names[j],
-                    year   = seq_len(length(rows)),
-                    obsHarv = sim$obsHarv[rows]
-                  )
-    }), fill = TRUE, use.names = TRUE)
-  })
-  dt_all <- data.table::rbindlist(dt_list, fill = TRUE, use.names = TRUE)
-  dt_all$zeroHarvest <- ifelse(is.na(dt_all$obsHarv), NA, dt_all$obsHarv == 0)
 
-  tibble::as_tibble(dt_all) |>
-    dplyr::group_by(.data$scen, .data$year) |>
-    dplyr::summarise(
-      n_zero_harvest = sum(.data$zeroHarvest == TRUE, na.rm = TRUE),
-      n_obs          = sum(!is.na(.data$zeroHarvest)),
-      prob_zero_harvest = n_zero_harvest / n_obs,
-      .groups = "drop"
-    ) |>
-    dplyr::left_join(scen_df, by = "scen")
-}
 
 #' Helper: Filter and finalize tidy plot data
 #'
-#' Joins harvest summaries with zero-harvest probabilities and filters by selectivity.
+#' Joins harvest summaries with closure metrics and filters by selectivity.
 #'
 #' @param summary_df Output of `.make_tidy_summary()`.
-#' @param zero_harvest_df Output of `.compute_zero_harvest()`.
+#' @param closure_df Output of `.compute_closure_metrics()`.
 #' @param selectivity_filter Which selectivity level to keep (e.g., "unselective").
 #' @return Final tidy data.frame for plotting.
 #' @keywords internal
-.prepare_plot_df <- function(summary_df, zero_harvest_df, selectivity_filter) {
+.prepare_plot_df <- function(summary_df, closure_df, selectivity_filter) {
   dplyr::left_join(
     summary_df,
-    zero_harvest_df |> dplyr::select("scen", "year", "n_obs", "n_zero_harvest", "prob_zero_harvest"),
+    closure_df |> dplyr::select("scen", "year", "n_obs", "n_zero_harvest",
+                                "prob_zero_harvest", "mean_cumulative_closures",
+                                "median_cumulative_closures", "q25_cumulative_closures",
+                                "q75_cumulative_closures"),
     by = c("scen", "year")
   ) |> dplyr::filter(.data$selectivity == selectivity_filter)
 }

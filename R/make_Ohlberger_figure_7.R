@@ -1,9 +1,9 @@
 #' Generate Ohlberger Figure 7: Performance for liberal vs precautionary goals
 #'
 #' Reproduces the published Figure 7: median values of four performance metrics
-#' (rows) for each estimation method (colours) using management targets of
-#' either **0.75 × S[MSY]** (“liberal”) or **1.5 × S[MSY]** (“precautionary”),
-#' assuming **unselective** fishing (columns = factorMSY).
+#' (rows) for each estimation method (colors) using management targets of
+#' either 0.75 × S_MSY (“liberal”) or 1.5 × S_MSY (“precautionary”),
+#' assuming unselective fishing (columns = factorMSY).
 #'
 #' @section Caption (from the publication):
 #' Performance metrics for liberal and precautionary management strategies.

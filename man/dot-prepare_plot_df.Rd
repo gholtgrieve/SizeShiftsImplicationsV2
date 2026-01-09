@@ -4,12 +4,12 @@
 \alias{.prepare_plot_df}
 \title{Helper: Filter and finalize tidy plot data}
 \usage{
-.prepare_plot_df(summary_df, zero_harvest_df, selectivity_filter)
+.prepare_plot_df(summary_df, closure_df, selectivity_filter)
 }
 \arguments{
 \item{summary_df}{Output of \code{.make_tidy_summary()}.}
 
-\item{zero_harvest_df}{Output of \code{.compute_zero_harvest()}.}
+\item{closure_df}{Output of \code{.compute_closure_metrics()}.}
 
 \item{selectivity_filter}{Which selectivity level to keep (e.g., "unselective").}
 }
@@ -17,6 +17,6 @@
 Final tidy data.frame for plotting.
 }
 \description{
-Joins harvest summaries with zero-harvest probabilities and filters by selectivity.
+Joins harvest summaries with closure metrics and filters by selectivity.
 }
 \keyword{internal}
