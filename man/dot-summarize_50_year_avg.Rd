@@ -4,13 +4,10 @@
 \alias{.summarize_50_year_avg}
 \title{Summarize 50-year average metrics from ssi_run model output}
 \usage{
-.summarize_50_year_avg(data, years = 50L)
+.summarize_50_year_avg(data)
 }
 \arguments{
 \item{data}{\code{ssi_run} object from \code{run_scenarios()}.}
-
-\item{years}{Integer. Number of most recent years to summarize
-(default 50).}
 }
 \value{
 A named list with elements \code{escapement}, \code{harvest}, and \code{return}.
@@ -19,15 +16,16 @@ Each is a list (one element per scenario) containing:
 \item \code{means}: numeric vector (length = niter) of iteration means
 \item \code{sd}: numeric vector (length = niter) of iteration SDs
 \item \code{quantiles}: matrix niter x 9 with iteration-wise quantiles
+\item \code{across_iter}: list with median and quantile bands across iterations
 }
 }
 \description{
 Accepts an \code{ssi_run} object returned by \code{run_scenarios()}.
 }
 \details{
-For each scenario and iteration, computes the mean across the last
-\code{years} rows (default 50) for \code{obsEsc}, \code{obsHarv}, and \code{obsRet}.
-Then returns iteration-level summaries (means, SDs, quantiles)
-grouped by scenario.
+For each scenario and iteration, computes the mean across the last 50 years
+(determined by \code{nyh} parameter stored in the ssi_run object) for \code{obsEsc},
+\code{obsHarv}, and \code{obsRet}. Then returns iteration-level summaries (means, SDs,
+quantiles) grouped by scenario.
 }
 \keyword{internal}

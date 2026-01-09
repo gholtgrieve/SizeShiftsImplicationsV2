@@ -7,7 +7,9 @@
 #' @param data `ssi_run` object from `run_scenarios()`.
 #' @param output_dir Directory to save outputs (default: current working directory).
 #'
-#' @return invisible(list(plot = ggplot, data = tidy_plotting_data))
+#' @return A list with:
+#'   - `data`: tidy data.frame used for plotting
+#'   - `plot`: ggplot object
 #' @noRd
 #' @keywords internal
 
@@ -109,16 +111,25 @@
   idx_lookup <- setNames(seq_len(nrow(scen_df)), scen_df$scen)
 
   df_list <- purrr::map(scen_keep$scen, function(sid) {
-    i <- idx_lookup[[sid]]
-    if (is.null(i)) stop("Scenario id '", sid, "' not found in scenario metadata.")
-
-    # per-iteration 50y means
+    # Get per-iteration 50y means
     esc_means <- summary_list$escapement[[sid]]$means
     har_means <- summary_list$harvest[[sid]]$means
 
-    if (!is.numeric(esc_means) || !is.numeric(har_means)) {
-      stop("Non-numeric per-iteration means for scenario ", sid, ".")
+    # Check if data exists and is valid
+    if (is.null(esc_means) || is.null(har_means) ||
+        !is.numeric(esc_means) || !is.numeric(har_means) ||
+        length(esc_means) == 0 || length(har_means) == 0) {
+      warning("Missing or invalid per-iteration means for scenario ", sid, ". Skipping.")
+      return(NULL)
     }
+
+    # Check that lengths match
+    if (length(esc_means) != length(har_means)) {
+      warning("Mismatched lengths for escapement (", length(esc_means),
+              ") and harvest (", length(har_means), ") in scenario ", sid, ". Skipping.")
+      return(NULL)
+    }
+
     tibble::tibble(
       scen       = sid,
       iter       = seq_along(esc_means),
@@ -128,7 +139,15 @@
       dplyr::left_join(scen_keep, by = c("scen" = "scen"))
   })
 
+  # Remove NULL entries before binding
+  df_list <- purrr::compact(df_list)
+
+  if (length(df_list) == 0) {
+    stop("No valid scenarios found for Figure B. Check that your data has observation results.")
+  }
+
   df <- dplyr::bind_rows(df_list)
+
   # idempotent standardization post-join (keeps factor levels stable)
   .standardize_scenario_labels(df)
 }

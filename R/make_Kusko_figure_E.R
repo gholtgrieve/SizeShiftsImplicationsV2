@@ -9,14 +9,17 @@
 #'
 #' @param data `ssi_run` from `run_scenarios()`
 #' @param output_dir Directory to save outputs (default `"."`)
-#' @param statistic Character: "median" (default) or "mean" for point estimates
-#' @return (invisible) list with `data` and `plot`
+#' @param summary_fn Character: "mean" or "median" (default) for point estimates
+#'   across Monte Carlo iterations.
+#' @return A list with:
+#'   - `data`: tidy data.frame used for plotting
+#'   - `plot`: ggplot object
 #' @noRd
 #' @keywords internal
-.make_Kusko_figure_E <- function(data, output_dir = ".", statistic = "mean") {
+.make_Kusko_figure_E <- function(data, output_dir = ".", summary_fn = "mean") {
 
-  # Validate statistic parameter
-  statistic <- match.arg(statistic, choices = c("mean", "median"))
+  # Validate summary_fn parameter
+  summary_fn <- match.arg(summary_fn, choices = c("mean", "median"))
 
   selectivity_filter <- "unselective"
   file_basename <- "FigureE"
@@ -34,7 +37,7 @@
   scen_df$scen <- paste0("scenario_", seq_len(nrow(scen_df)))
 
   # Build tidy DF (Harvest + Closure Count) and apply filters / factor orders
-  plot_df <- .make_50yr_hc_tidy(data, summary_list, scen_df, statistic = statistic) |>
+  plot_df <- .make_50yr_hc_tidy(data, summary_list, scen_df, summary_fn = summary_fn) |>
     dplyr::filter(
       .data$selectivity == !!selectivity_filter,
       .data$trends == "ASL trends continued"
@@ -123,7 +126,7 @@
 
   message("Figure E saved to: ", plot_path)
   message("Data saved to: ", data_path)
-  message("Statistic used: ", statistic)
+  message("Summary function used: ", summary_fn)
 
   invisible(list(data = plot_df, plot = p))
 }
@@ -148,14 +151,14 @@
 #' @param summary_list Output from `.summarize_50_year_avg(data)`.
 #' @param scen_df Scenario metadata tibble with standardized labels and column `scen`
 #'        matching the order of scenarios (e.g., "scenario_1", ...).
-#' @param statistic Character: "median" or "mean" for point estimates.
+#' @param summary_fn Character: "median" or "mean" for point estimates.
 #'
 #' @return Tidy data.frame (one row per scenario) with columns:
 #'   `mgmt, selectivity, trends, factorMSY, scen,
 #'    harv_point, harv_q10, harv_q25, harv_q50, harv_q75, harv_q90,
 #'    closure_point, closure_q10, closure_q25, closure_q50, closure_q75, closure_q90`
 #' @keywords internal
-.make_50yr_hc_tidy <- function(data, summary_list, scen_df, statistic = "median") {
+.make_50yr_hc_tidy <- function(data, summary_list, scen_df, summary_fn = "median") {
   if (!inherits(data, "ssi_run")) {
     stop("`data` must be an 'ssi_run' object.")
   }
@@ -164,26 +167,17 @@
     stop("No observation lists found in `ssi_run` (data$results$obs).")
   }
 
-  # ----- harvest stats from 50-yr summaries ----------------
-  .extract_stats <- function(metric_list, stat_type) {
-    extract_one <- function(scn) {
-      if (stat_type == "mean") {
-        # Use iteration means
-        point <- base::mean(scn$means, na.rm = TRUE)
-      } else {
-        # Use iteration medians (q50 from each iteration's quantiles)
-        point <- stats::median(scn$quantiles[, "q50"], na.rm = TRUE)
-      }
-      # Quantiles are always computed the same way
-      qs <- c("q10","q25","q50","q75","q90")
-      qvals <- vapply(qs, function(q) base::mean(scn$quantiles[, q], na.rm = TRUE), numeric(1))
-      c(point = point, qvals)
-    }
-    out <- t(vapply(metric_list, extract_one, numeric(6)))
-    colnames(out) <- c("point","q10","q25","q50","q75","q90")
-    out
-  }
-  har_stats <- .extract_stats(summary_list$harvest, statistic)
+  # ----- harvest stats from 50-yr summaries using generalized helper ------
+  har_df <- .make_50yr_metrics_tidy(
+    summary_list,
+    scen_df,
+    summary_fn,
+    metrics = "harvest",
+    prefix = "harv_"
+  )
+
+  # Extract harvest stats
+  har_stats <- as.matrix(har_df[, c("harv_point", "harv_q10", "harv_q25", "harv_q50", "harv_q75", "harv_q90")])
 
   # ----- establish common 50-yr window across iterations -----
   nscen <- length(obs_list)
@@ -227,8 +221,8 @@
     stop("Failed to compute per-iteration closure counts; check that obsHarv exists and has rows.")
   }
 
-  # ----- summarise across iterations using chosen statistic -------
-  if (statistic == "mean") {
+  # ----- summarise across iterations using chosen summary function -------
+  if (summary_fn == "mean") {
     closure_stats_df <- per_iter |>
       dplyr::group_by(.data$scen) |>
       dplyr::summarise(
@@ -264,12 +258,12 @@
   df <- scen_df
 
   # Harvest (x-axis) — point estimate + quantiles, integer counts
-  df$harv_point <- round(har_stats[, "point"], 0)
-  df$harv_q10  <- round(har_stats[, "q10"],  0)
-  df$harv_q25  <- round(har_stats[, "q25"],  0)
-  df$harv_q50  <- round(har_stats[, "q50"],  0)
-  df$harv_q75  <- round(har_stats[, "q75"],  0)
-  df$harv_q90  <- round(har_stats[, "q90"],  0)
+  df$harv_point <- round(har_stats[, "harv_point"], 0)
+  df$harv_q10  <- round(har_stats[, "harv_q10"],  0)
+  df$harv_q25  <- round(har_stats[, "harv_q25"],  0)
+  df$harv_q50  <- round(har_stats[, "harv_q50"],  0)
+  df$harv_q75  <- round(har_stats[, "harv_q75"],  0)
+  df$harv_q90  <- round(har_stats[, "harv_q90"],  0)
 
   # Closure count (y-axis) — point estimate + quantiles, integer counts
   df$closure_point <- round(closure_stats[, "point"], 0)

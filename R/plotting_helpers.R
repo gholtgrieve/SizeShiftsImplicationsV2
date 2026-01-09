@@ -18,6 +18,7 @@
 #' - `selectivity`: `c("small-mesh","unselective","large-mesh")`
 #' @param df A data.frame/tibble with any of the columns above.
 #' @return The same data.frame with standardized character values and ordered factors.
+#' @keywords internal
 
 .standardize_scenario_labels <- function(df) {
   # factorMSY --------------------------------------------------------------
@@ -82,7 +83,13 @@
 }
 
 
-# Standardize scenario labels and add IDs that match results list names
+#' Standardize scenario labels and add IDs that match results list names
+#'
+#' Used by Ohlberger figures. Adds scen_key matching the names in results lists.
+#'
+#' @param data An `ssi_run` object
+#' @return Tibble with standardized scenario labels and keys
+#' @keywords internal
 .scenarios_from_ssirun <- function(data) {
   # 'data' must be an ssi_run object, so 'data$scenarios' is expected to be present.
   df <- .standardize_scenario_labels(tibble::as_tibble(data$scenarios))
@@ -97,12 +104,21 @@
   df
 }
 
-# Create ./<file_basename>/ under output_dir and return that folder path
+
+#' Create output directory for figures
+#'
+#' Used by Ohlberger figures.
+#'
+#' @param output_dir Base output directory
+#' @param file_basename Subfolder name to create
+#' @return Full path to created directory
+#' @keywords internal
 .ensure_outdir <- function(output_dir, file_basename) {
   out <- file.path(output_dir, file_basename)
   if (!dir.exists(out)) dir.create(out, recursive = TRUE)
   out
 }
+
 
 # Safe pull from parameters with default
 .get_param <- function(data, name, default = NULL) {
@@ -114,29 +130,34 @@
 .get_nyi <- function(data, default = 50L) as.integer(.get_param(data, "nyi", default))
 .get_ny  <- function(data, default = NA_integer_) as.integer(.get_param(data, "ny", default))
 .get_goalfreq <- function(data, default = NA_integer_) as.integer(.get_param(data, "goalfreq", default))
-.get_firstrev <- function(data, default = 20L) as.integer(.get_param(data, "firstrev", default)) # run_model uses 20
+.get_firstrev <- function(data, default = 20L) as.integer(.get_param(data, "firstrev", default))
 
 # Nested obs list: [[scenario]][[iteration]] -> data.frame with obsEsc/obsHarv/obsRet
 .get_obs_list <- function(data) {
   obs_list <- data$results$obs
-  if (is.null(obs_list) || !length(obs_list)) stop("No observation lists found at data$results$obs.")
+  if (is.null(obs_list) || !length(obs_list)) {
+    stop("No observation lists found at data$results$obs.")
+  }
   obs_list
 }
 
 # SR params list (alpha, beta, ...) per scenario/iteration (data.frame per iter)
 .get_sr_params_list <- function(data) {
   sr <- data$results$sr_sim
-  if (is.null(sr)) stop("SR parameter list not found at data$results$sr_sim.")
+  if (is.null(sr)) {
+    stop("SR parameter list not found at data$results$sr_sim.")
+  }
   sr
 }
 
 # S_MSY series per scenario/iteration (numeric vector over review years)
 .get_smsy_series_list <- function(data) {
   sm <- data$results$S_msy
-  if (is.null(sm)) stop("S_MSY series not found at data$results$S_msy.")
+  if (is.null(sm)) {
+    stop("S_MSY series not found at data$results$S_msy.")
+  }
   sm
 }
-
 
 
 #' Access review years from an ssi_run
@@ -157,16 +178,11 @@
 }
 
 
-.get_nyi      <- function(data, default = NA_integer_) data$parameters$nyi
-.get_nyh      <- function(data, default = NA_integer_) data$parameters$nyh
-.get_ny       <- function(data, default = NA_integer_) data$parameters$ny
-.get_goalfreq <- function(data, default = NA_integer_) data$parameters$goalfreq
-.get_firstrev <- function(data, default = NA_integer_) data$parameters$firstrev
-
-
 #' Index of the first post-historical review
+#'
 #' Uses `ssi_run$parameters$hist_end_year` and `ssi_run$parameters$review_years`
 #' to locate the review at or just after the end of the historical period.
+#'
 #' @param data An `ssi_run` object.
 #' @param review_years (optional) supply review years explicitly; by default
 #'   uses `.get_review_years(data)`.
@@ -191,47 +207,27 @@
 }
 
 
-
-# Per-iteration mean over a window (utility for other figs)
-.iter_window_means <- function(obs_list, year_index, col) {
-  nscen <- length(obs_list)
-  niter <- length(obs_list[[1L]])
-  mat <- matrix(NA_real_, nrow = nscen, ncol = niter)
-  for (j in seq_len(nscen)) {
-    for (k in seq_len(niter)) {
-      obs <- obs_list[[j]][[k]]
-      if (!is.data.frame(obs) || !nrow(obs) || !(col %in% names(obs))) next
-      v <- obs[[col]][year_index]
-      mat[j, k] <- mean(v, na.rm = TRUE)
-    }
-  }
-  mat
-}
-
-
-
 #' Summarize 50-year average metrics from ssi_run model output
 #'
 #' Accepts an `ssi_run` object returned by `run_scenarios()`.
 #'
-#' For each scenario and iteration, computes the mean across the last
-#' `years` rows (default 50) for `obsEsc`, `obsHarv`, and `obsRet`.
-#' Then returns iteration-level summaries (means, SDs, quantiles)
-#' grouped by scenario.
+#' For each scenario and iteration, computes the mean across the last 50 years
+#' (determined by `nyh` parameter stored in the ssi_run object) for `obsEsc`,
+#' `obsHarv`, and `obsRet`. Then returns iteration-level summaries (means, SDs,
+#' quantiles) grouped by scenario.
 #'
 #' @param data `ssi_run` object from `run_scenarios()`.
-#' @param years Integer. Number of most recent years to summarize
-#'   (default 50).
 #'
 #' @return A named list with elements `escapement`, `harvest`, and `return`.
 #'   Each is a list (one element per scenario) containing:
 #'   - `means`: numeric vector (length = niter) of iteration means
 #'   - `sd`: numeric vector (length = niter) of iteration SDs
 #'   - `quantiles`: matrix niter x 9 with iteration-wise quantiles
+#'   - `across_iter`: list with median and quantile bands across iterations
 #'
 #' @keywords internal
 
-.summarize_50_year_avg <- function(data, years = 50L) {
+.summarize_50_year_avg <- function(data) {
   # Validate input
   if (!inherits(data, "ssi_run")) {
     stop("`data` must be an 'ssi_run' object from run_scenarios().")
@@ -320,7 +316,6 @@
 }
 
 
-
 #' Summarize observations by year across scenarios and iterations
 #'
 #' Accepts an `ssi_run` object from `run_scenarios()`.
@@ -364,7 +359,9 @@
   lens <- unlist(lapply(obs_list, function(iters) {
     vapply(iters, function(df) if (is.data.frame(df)) nrow(df) else 0L, integer(1))
   }), use.names = FALSE)
-  if (!length(lens) || all(lens == 0L)) stop("Observation data frames are empty.")
+  if (!length(lens) || all(lens == 0L)) {
+    stop("Observation data frames are empty.")
+  }
 
   years <- as.integer(years)
   if (is.na(years) || years <= 0L) years <- 50L
@@ -432,8 +429,6 @@
 }
 
 
-
-
 #' Helper: Compute closure metrics (probability and cumulative)
 #'
 #' Calculates both probability of zero harvest AND cumulative closures by year.
@@ -489,4 +484,82 @@
       .groups = "drop"
     ) |>
     dplyr::left_join(scen_df, by = "scen")
+}
+
+
+#' Helper: Build tidy 50-yr summaries with quantiles for specified metrics
+#'
+#' Generalized function to extract point estimates and quantiles for any
+#' metrics from `.summarize_50_year_avg()` output.
+#'
+#' @param summary_list Output from `.summarize_50_year_avg()`
+#' @param scen_df Scenario metadata tibble with `scen` column
+#' @param summary_fn "mean" or "median" for point estimates
+#' @param metrics Character vector of metric names to extract (e.g., c("escapement", "harvest"))
+#' @param prefix Optional prefix for column names (e.g., "esc_" produces "esc_point", "esc_q10", etc.)
+#'   If NULL, uses metric name as prefix (e.g., "escapement_point")
+#' @return Tidy dataframe (one row per scenario) with columns for each metric's
+#'   point estimate and quantiles (point, q10, q25, q50, q75, q90)
+#' @keywords internal
+.make_50yr_metrics_tidy <- function(summary_list, scen_df, summary_fn = "mean",
+                                    metrics = c("escapement", "harvest", "return"),
+                                    prefix = NULL) {
+
+  # Validate summary_fn
+  if (!summary_fn %in% c("mean", "median")) {
+    stop("`summary_fn` must be 'mean' or 'median'.")
+  }
+
+  # Internal extractor returning a named vector of point + quantiles
+  .extract_point_and_intervals <- function(metric_list, summary_fn) {
+    extract_one <- function(scn) {
+      # central point
+      point <- if (identical(summary_fn, "mean")) {
+        base::mean(scn$means, na.rm = TRUE)
+      } else {
+        stats::median(scn$quantiles[, "q50"], na.rm = TRUE)
+      }
+
+      qs <- c("q10", "q25", "q50", "q75", "q90")
+      # average each quantile across the 50-year window
+      qvals <- vapply(qs, function(q) base::mean(scn$quantiles[, q], na.rm = TRUE), numeric(1))
+
+      c(point = point, qvals)
+    }
+
+    out <- t(vapply(metric_list, extract_one, numeric(6)))
+    colnames(out) <- c("point", "q10", "q25", "q50", "q75", "q90")
+    out
+  }
+
+  # Start with scenario metadata
+  df <- scen_df
+
+  # Extract stats for each requested metric
+  for (metric in metrics) {
+    if (!metric %in% names(summary_list)) {
+      stop("Metric '", metric, "' not found in summary_list.")
+    }
+
+    stats <- .extract_point_and_intervals(summary_list[[metric]], summary_fn)
+
+    # Determine column prefix
+    col_prefix <- if (!is.null(prefix) && length(prefix) == length(metrics)) {
+      prefix[match(metric, metrics)]
+    } else if (!is.null(prefix) && length(prefix) == 1) {
+      prefix
+    } else {
+      paste0(metric, "_")
+    }
+
+    # Add columns with appropriate names
+    df[[paste0(col_prefix, "point")]] <- round(stats[, "point"], 0)
+    df[[paste0(col_prefix, "q10")]]   <- round(stats[, "q10"], 0)
+    df[[paste0(col_prefix, "q25")]]   <- round(stats[, "q25"], 0)
+    df[[paste0(col_prefix, "q50")]]   <- round(stats[, "q50"], 0)
+    df[[paste0(col_prefix, "q75")]]   <- round(stats[, "q75"], 0)
+    df[[paste0(col_prefix, "q90")]]   <- round(stats[, "q90"], 0)
+  }
+
+  df
 }

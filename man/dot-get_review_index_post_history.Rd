@@ -2,9 +2,7 @@
 % Please edit documentation in R/plotting_helpers.R
 \name{.get_review_index_post_history}
 \alias{.get_review_index_post_history}
-\title{Index of the first post-historical review
-Uses \code{ssi_run$parameters$hist_end_year} and \code{ssi_run$parameters$review_years}
-to locate the review at or just after the end of the historical period.}
+\title{Index of the first post-historical review}
 \usage{
 .get_review_index_post_history(data, review_years = .get_review_years(data))
 }
@@ -18,7 +16,6 @@ uses \code{.get_review_years(data)}.}
 Integer scalar index into \code{review_years}.
 }
 \description{
-Index of the first post-historical review
 Uses \code{ssi_run$parameters$hist_end_year} and \code{ssi_run$parameters$review_years}
 to locate the review at or just after the end of the historical period.
 }

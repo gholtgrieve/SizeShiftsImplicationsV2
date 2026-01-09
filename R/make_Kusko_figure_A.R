@@ -6,6 +6,8 @@
 #'
 #' @param data `ssi_run` object from `run_scenarios()`
 #' @param output_dir Directory to save plots and data (default: current working directory).
+#' @param summary_fn Character: "mean" (default) or "median" for point estimates
+#'   across Monte Carlo iterations.
 #'
 #' @return A list with:
 #'   - `data`: tidy data.frame used for plotting
@@ -13,9 +15,11 @@
 #' @noRd
 #' @keywords internal
 
-.make_Kusko_figure_A <- function(data, output_dir = ".") {
+.make_Kusko_figure_A <- function(data, output_dir = ".", summary_fn = "mean") {
+  # Validate summary_fn parameter
+  summary_fn <- match.arg(summary_fn, choices = c("mean", "median"))
+
   # Fixed settings
-  statistic <- "mean"  # can change to "median" if desired
   selectivity_filter <- "unselective"
   colors <- c("darkgray", "deepskyblue3", "orange")
   file_basename <- "FigureA"
@@ -27,8 +31,19 @@
   scen_df <- .standardize_scenario_labels(tibble::as_tibble(data$scenarios))
   scen_df$scen <- paste0("scenario_", seq_len(nrow(scen_df)))
 
-  # Build tidy dataframe
-  summary_df <- .make_50yr_summary_tidy(summary_list, scen_df, statistic)
+  # Build tidy dataframe using generalized helper
+  summary_df <- .make_50yr_metrics_tidy(
+    summary_list,
+    scen_df,
+    summary_fn,
+    metrics = c("harvest", "return", "escapement"),
+    prefix = NULL  # Will produce "harvest_point", "return_point", etc.
+  )
+
+  # Extract just the point estimates and rename for Figure A
+  summary_df$harvest    <- summary_df$harvest_point
+  summary_df$return     <- summary_df$return_point
+  summary_df$escapement <- summary_df$escapement_point
 
   # Prepare final plotting dataframe
   plot_df <- .prepare_plot_A_df(summary_df, selectivity_filter)
@@ -85,39 +100,9 @@
 
   message("Figure A saved to: ", plot_path)
   message("Data saved to: ", data_path)
+  message("Summary function used: ", summary_fn)
 
   return(invisible(list(data = plot_df, plot = p)))
-}
-
-#' Helper: Tidy 50-year summaries for plotting (harvest, escapement, return)
-#'
-#' Converts list-of-lists from `.summarize_50_year_avg()` into a tidy data.frame
-#' joined with scenario metadata.
-#'
-#' @param summary_list Output from `.summarize_50_year_avg()`.
-#' @param scen_df Scenario metadata tibble (with scen column).
-#' @param statistic Which statistic to use: "mean" or "median".
-#' @return Tidy dataframe with per-scenario metrics.
-#' @keywords internal
-.make_50yr_summary_tidy <- function(summary_list, scen_df, statistic = "mean") {
-  extract_values <- function(metric_list, statistic) {
-    vapply(metric_list, function(scn) {
-      if (identical(statistic, "mean")) {
-        base::mean(scn$means, na.rm = TRUE)
-      } else if (identical(statistic, "median")) {
-        stats::median(scn$quantiles[, "q50"], na.rm = TRUE)
-      } else {
-        stop("`statistic` must be 'mean' or 'median'.")
-      }
-    }, numeric(1))
-  }
-
-  df <- scen_df
-  df$harvest    <- round(extract_values(summary_list$harvest, statistic), 0)
-  df$return     <- round(extract_values(summary_list$return, statistic), 0)
-  df$escapement <- round(extract_values(summary_list$escapement, statistic), 0)
-
-  df
 }
 
 #' Helper: Reshape tidy dataframe for plotting Figure A

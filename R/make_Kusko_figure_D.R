@@ -6,18 +6,24 @@
 #' Monte Carlo iterations; error bars depict 50% (thick; q25–q75) and 80%
 #' (thin; q10–q90) intervals for both axes. Facets: rows = trends
 #' ("no trends", "ASL trends stabilized", "ASL trends continued"); columns =
-#' management ("TRM", "YPR", "DLM" ); colors = factorMSY ("liberal", "MSY", "precautionary").
+#' management ("TRM", "YPR", "DLM"); colors = factorMSY ("liberal", "MSY", "precautionary").
 #' Labels and styling follow Figure A helpers and theme.
 #'
 #' @param data `ssi_run` from `run_scenarios()`
 #' @param output_dir Directory to save outputs (default `"."`)
-#' @return (invisible) list with `data` and `plot`
+#' @param summary_fn Character: "mean" (default) or "median" for point estimates
+#'   across Monte Carlo iterations.
+#' @return A list with:
+#'   - `data`: tidy data.frame used for plotting
+#'   - `plot`: ggplot object
 #' @noRd
 #' @keywords internal
 
-.make_Kusko_figure_D <- function(data, output_dir = ".") {
+.make_Kusko_figure_D <- function(data, output_dir = ".", summary_fn = "mean") {
+  # Validate summary_fn parameter
+  summary_fn <- match.arg(summary_fn, choices = c("mean", "median"))
+
   # Fixed settings
-  statistic <- "mean"
   selectivity_filter <- "unselective"
 
   # Colors now map to factorMSY (liberal, MSY, precautionary)
@@ -35,7 +41,18 @@
   scen_df$scen <- paste0("scenario_", seq_len(nrow(scen_df)))
 
   # Build tidy dataframe with means + quantiles for Harvest and Escapement
-  tidy_df <- .make_50yr_xy_tidy(summary_list, scen_df, statistic)
+  # Use generalized helper with custom prefixes
+  tidy_df <- .make_50yr_metrics_tidy(
+    summary_list,
+    scen_df,
+    summary_fn,
+    metrics = c("escapement", "harvest"),
+    prefix = c("esc_", "harv_")
+  )
+
+  # Rename "point" columns to "mean" for consistency with existing code
+  tidy_df$esc_mean  <- tidy_df$esc_point
+  tidy_df$harv_mean <- tidy_df$harv_point
 
   # Select, order factors for facets and legend
   plot_df <-
@@ -110,7 +127,7 @@
     # Keep axes 1:1 visually too
     ggplot2::coord_equal() +
     ggplot2::facet_grid(
-      rows = ggplot2::vars(.data$trends),  # trends: no tren, ASL stabilized, ASL continued
+      rows = ggplot2::vars(.data$trends),  # trends: no trends, ASL stabilized, ASL continued
       cols = ggplot2::vars(.data$mgmt),    # mgmt: TRM, YPR, DLM
       scales = "fixed",
       switch = "y"
@@ -142,72 +159,7 @@
 
   message("Figure D saved to: ", plot_path)
   message("Data saved to: ", data_path)
+  message("Summary function used: ", summary_fn)
 
   return(invisible(list(data = plot_df, plot = p)))
-}
-
-
-#' Helper: Build tidy XY (Harvest/Escapement) 50-yr summaries with quantiles
-#'
-#' Converts the output of `.summarize_50_year_avg()` into a tidy data frame that
-#' includes central points (means or medians) and quantile ranges (q10, q25, q50,
-#' q75, q90) for Harvest and Escapement, joined with standardized scenario
-#' metadata.
-#'
-#' @param summary_list Output from `.summarize_50_year_avg()`.
-#' @param scen_df Scenario metadata tibble (with `scen` column).
-#' @param statistic Which statistic for the point estimate: "mean" or "median".
-#' @return Tidy dataframe (one row per scenario) with columns:
-#'   mgmt, selectivity, trends, factorMSY, scen, and
-#'   esc_mean, esc_q10, esc_q25, esc_q50, esc_q75, esc_q90,
-#'   harv_mean, harv_q10, harv_q25, harv_q50, harv_q75, harv_q90.
-#' @keywords internal
-.make_50yr_xy_tidy <- function(summary_list, scen_df, statistic = "mean") {
-
-  # Internal extractor returning a named vector of point + quantiles
-  .extract_point_and_intervals <- function(metric_list, statistic) {
-    # For each scenario, compute the point (mean or median of q50) and
-    # quantile summaries averaged across the 50-yr window (over iterations).
-    extract_one <- function(scn) {
-      # central point
-      point <- if (identical(statistic, "mean")) {
-        base::mean(scn$means, na.rm = TRUE)
-      } else if (identical(statistic, "median")) {
-        stats::median(scn$quantiles[, "q50"], na.rm = TRUE)
-      } else {
-        stop("`statistic` must be 'mean' or 'median'.")
-      }
-
-      qs <- c("q10", "q25", "q50", "q75", "q90")
-      # average each quantile across the 50-year window
-      qvals <- vapply(qs, function(q) base::mean(scn$quantiles[, q], na.rm = TRUE), numeric(1))
-
-      c(point = point, qvals)
-    }
-
-    out <- t(vapply(metric_list, extract_one, numeric(6)))
-    colnames(out) <- c("mean", "q10", "q25", "q50", "q75", "q90")
-    out
-  }
-
-  esc_stats <- .extract_point_and_intervals(summary_list$escapement, statistic)
-  har_stats <- .extract_point_and_intervals(summary_list$harvest,    statistic)
-
-  df <- scen_df
-  # Bind stats with informative names
-  df$esc_mean <- round(esc_stats[, "mean"], 0)
-  df$esc_q10  <- round(esc_stats[, "q10"],  0)
-  df$esc_q25  <- round(esc_stats[, "q25"],  0)
-  df$esc_q50  <- round(esc_stats[, "q50"],  0)
-  df$esc_q75  <- round(esc_stats[, "q75"],  0)
-  df$esc_q90  <- round(esc_stats[, "q90"],  0)
-
-  df$harv_mean <- round(har_stats[, "mean"], 0)
-  df$harv_q10  <- round(har_stats[, "q10"],  0)
-  df$harv_q25  <- round(har_stats[, "q25"],  0)
-  df$harv_q50  <- round(har_stats[, "q50"],  0)
-  df$harv_q75  <- round(har_stats[, "q75"],  0)
-  df$harv_q90  <- round(har_stats[, "q90"],  0)
-
-  df
 }

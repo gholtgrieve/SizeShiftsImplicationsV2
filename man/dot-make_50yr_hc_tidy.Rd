@@ -4,7 +4,7 @@
 \alias{.make_50yr_hc_tidy}
 \title{Helper: Build tidy HC (Harvest / Closure Count) 50-yr summaries with quantiles}
 \usage{
-.make_50yr_hc_tidy(data, summary_list, scen_df, statistic = "median")
+.make_50yr_hc_tidy(data, summary_list, scen_df, summary_fn = "median")
 }
 \arguments{
 \item{data}{\code{ssi_run} object (from \code{run_scenarios()}).}
@@ -14,7 +14,7 @@
 \item{scen_df}{Scenario metadata tibble with standardized labels and column \code{scen}
 matching the order of scenarios (e.g., "scenario_1", ...).}
 
-\item{statistic}{Character: "median" or "mean" for point estimates.}
+\item{summary_fn}{Character: "median" or "mean" for point estimates.}
 }
 \value{
 Tidy data.frame (one row per scenario) with columns:

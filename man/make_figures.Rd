@@ -7,7 +7,8 @@
 make_figures(
   figures = "Kuskokwim",
   data,
-  figure_dir = file.path(here::here(), "figures")
+  figure_dir = file.path(here::here(), "figures"),
+  ...
 )
 }
 \arguments{
@@ -19,19 +20,36 @@ Defaults to \code{"Kuskokwim"}.}
 a file path to a saved \code{.rds} containing an \code{ssi_run}.}
 
 \item{figure_dir}{Directory to save figures (default: \code{here()/figures}).}
+
+\item{...}{Additional arguments passed to individual figure functions.
+For example, \code{summary_fn = "median"} can be used with Figures C and E
+to plot median values instead of means across iterations.}
 }
 \value{
 Invisible named list of results for each figure generated.
 }
 \description{
 Convenience wrapper to generate either the \strong{Ohlberger} figures (2–7),
-the \strong{Kuskokwim} figures (A–C), or a user-specified subset.
+the \strong{Kuskokwim} figures (A–E), or a user-specified subset.
 }
 \details{
 \itemize{
 \item \code{"Ohlberger"} builds Figures \strong{2, 3, 4, 5, 6, 7}.
-\item \code{"Kuskokwim"} builds Figures \strong{A, B, C}.
+\item \code{"Kuskokwim"} builds Figures \strong{A, B, C, D, E}.
 \item You can also pass explicit figure codes, e.g. \code{c("A","C")} or \code{c("2","5")}.
 (Case-insensitive; \code{"Figure5"} also works.)
 }
+}
+\examples{
+\dontrun{
+# Generate all Kuskokwim figures with default settings (mean)
+make_figures(figures = "Kuskokwim", data = my_run)
+
+# Generate Figures C and E using median instead of mean
+make_figures(figures = c("C", "E"), data = my_run, summary_fn = "median")
+
+# Generate all Kuskokwim figures using median
+make_figures(figures = "Kuskokwim", data = my_run, summary_fn = "median")
+}
+
 }

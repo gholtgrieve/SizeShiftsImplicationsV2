@@ -18,11 +18,18 @@
 #' @noRd
 #' @keywords internal
 
-.make_Kusko_figure_C <- function(data, output_dir = ".", closure_metric = "cumulative", statistic = "median") {
+.make_Kusko_figure_C <- function(data, output_dir = ".", closure_metric = "cumulative", summary_fn = "mean") {
 
   # Validate parameters
   closure_metric <- match.arg(closure_metric, choices = c("probability", "cumulative"))
-  statistic <- match.arg(statistic, choices = c("mean", "median"))
+  summary_fn <- match.arg(summary_fn, choices = c("mean", "median"))
+
+  # Map summary_fn to the column names in MeanByYear output
+  summary_stats <- if (summary_fn == "mean") {
+    c(mean = "Mean", ymin = "25%", ymax = "75%")
+  } else {
+    c(mean = "50%", ymin = "25%", ymax = "75%")
+  }
 
   summary_stats <- c(mean = "Mean", ymin = "25%", ymax = "75%")
   selectivity_filter <- "unselective"
@@ -80,8 +87,8 @@
     line_label <- "Probability of zero harvest\n(right axis)"
 
   } else {  # cumulative
-    # New behavior: cumulative closures, no smoothing
-    if (statistic == "mean") {
+    # cumulative closures, no smoothing
+    if (summary_fn == "mean") {
       metric_df <- plot_df |>
         dplyr::filter(.data$label == "Harvest (1000s)") |>
         dplyr::arrange(.data$scen, .data$mgmt, .data$trends, .data$factorMSY, .data$year) |>
@@ -189,7 +196,7 @@
   message("Data saved to: ", csv_path)
   message("Closure metric used: ", closure_metric)
   if (closure_metric == "cumulative") {
-    message("Statistic used for cumulative closures: ", statistic)
+    message("Summary function used for cumulative closures: ", summary_fn)
   }
 
   return(invisible(list(data = plot_df, plots = plots, closure_metric = closure_metric)))
