@@ -4,15 +4,18 @@
 # Exercises the full pipeline: scenario selection -> config -> model -> output.
 
 # Shared fixture: run once, reuse across all tests in this file.
+# Output saved to outputs/test_runs/ (gitignored) with a timestamp so every
+# test run is preserved and can be inspected after the fact.
 local({
-  scens <- SizeShiftsImplicationsV2:::.select_scenarios(13L)  # scen 13: no trends, smsy_goal
+  out_dir <- file.path(here::here(), "outputs", "test_runs")
+  dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
 
   .run <<- run_scenarios(
     scenarios  = 13L,
     niter      = 3L,
     seed       = "reproducible",
     params     = "Ohlberger",
-    output_dir = tempdir(),
+    output_dir = out_dir,
     parallel   = FALSE
   )
 })
@@ -136,7 +139,7 @@ test_that("results are reproducible: same seed gives identical recruits", {
     niter      = 1L,
     seed       = "reproducible",
     params     = "Ohlberger",
-    output_dir = tempdir(),
+    output_dir = file.path(here::here(), "outputs", "test_runs"),
     parallel   = FALSE
   )
   d1 <- .run$results$data[[1]][[1]]$Rec
