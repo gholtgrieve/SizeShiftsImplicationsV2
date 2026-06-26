@@ -463,8 +463,9 @@ run_model <- function(config) {
         sizes_y <- NA
         for (a in 1:nage) {
           esc_F_a_y <- esc_by_age_sex[y, a, which(names(esc_by_age_sex[1,1,]) == "F")]
-          if (is.na(esc_F_a_y)) { size_new <- NA } else { if (esc_F_a_y > 0) { size_new <- meanSaA[y, a] } else { size_new <- NA } }
-          sizes_y <- c(sizes_y, rep(size_new, esc_F_a_y))
+          if (!is.na(esc_F_a_y) && esc_F_a_y > 0) {
+            sizes_y <- c(sizes_y, rep(meanSaA[y, a], esc_F_a_y))
+          }
         }
         sizes_y <- sizes_y[!is.na(sizes_y)]
 

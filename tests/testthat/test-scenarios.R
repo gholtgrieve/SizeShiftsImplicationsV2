@@ -46,9 +46,9 @@ test_that("numeric selector filters by scen_num", {
 })
 
 test_that("filter expression selector works", {
-  out <- SizeShiftsImplicationsV2:::.select_scenarios("mgmt == 'fix_harv_rate'")
+  out <- SizeShiftsImplicationsV2:::.select_scenarios("mgmt == 'smsy_goal'")
   expect_gt(nrow(out), 0)
-  expect_true(all(out$mgmt == "fix_harv_rate"))
+  expect_true(all(out$mgmt == "smsy_goal"))
 })
 
 test_that("invalid filter expression raises an error", {
