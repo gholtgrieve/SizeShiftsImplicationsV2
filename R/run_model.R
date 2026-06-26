@@ -346,8 +346,8 @@ run_model <- function(config) {
         if (withr::with_seed(seednum + 6000L + y,
                              sample(c(rep(0, reglength - 1), 1L), 1L)
         )) {
-          if (aset == 1) alpha <- alpha.low else alpha <- alpha.high
-          aset <- abs(aset - 3) ## change regime indicator
+          aset <- abs(aset - 3)                    ## flip regime indicator first
+          alpha <- c(alpha.low, alpha.high)[aset] ## then assign to NEW regime
         }
       }
       PopDat$reg[y] <- aset ## regime

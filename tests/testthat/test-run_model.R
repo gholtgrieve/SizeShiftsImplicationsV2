@@ -178,7 +178,6 @@ test_that("BUG1 (regime shift): high-productivity regime produces more recruitme
   # should put the model in the HIGH regime immediately. Over many seeds, the
   # HIGH-regime years should produce noticeably more recruitment than a
   # no-shift baseline (reglength=0).
-  skip("BUG1 not yet fixed -- run_model.R:347-349: alpha set to OLD regime on shift. Fix: flip aset first, then assign alpha <- c(alpha.low, alpha.high)[aset].")
 
   make_cfg <- function(reglength, regstr, seed) {
     make_minimal_config(reglength = reglength, regstr = regstr, seednum = seed)
