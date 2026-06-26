@@ -4,18 +4,21 @@
 # Exercises the full pipeline: scenario selection -> config -> model -> output.
 
 # Shared fixture: run once, reuse across all tests in this file.
-# Output saved to outputs/test_runs/ (gitignored) with a timestamp so every
-# test run is preserved and can be inspected after the fact.
+# Each test session gets its own timestamped subfolder under outputs/test_runs/
+# (gitignored), so every run is preserved and can be loaded for inspection.
 local({
-  out_dir <- file.path(here::here(), "outputs", "test_runs")
-  dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
+  .test_out_dir <<- file.path(
+    here::here(), "outputs", "test_runs",
+    format(Sys.time(), "%Y-%m-%d_%H-%M-%S")
+  )
+  dir.create(.test_out_dir, recursive = TRUE, showWarnings = FALSE)
 
   .run <<- run_scenarios(
     scenarios  = 13L,
     niter      = 3L,
     seed       = "reproducible",
     params     = "Ohlberger",
-    output_dir = out_dir,
+    output_dir = .test_out_dir,
     parallel   = FALSE
   )
 })
@@ -139,7 +142,7 @@ test_that("results are reproducible: same seed gives identical recruits", {
     niter      = 1L,
     seed       = "reproducible",
     params     = "Ohlberger",
-    output_dir = file.path(here::here(), "outputs", "test_runs"),
+    output_dir = .test_out_dir,
     parallel   = FALSE
   )
   d1 <- .run$results$data[[1]][[1]]$Rec
