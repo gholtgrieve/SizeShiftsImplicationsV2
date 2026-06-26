@@ -11,7 +11,7 @@ local({
     scenarios  = 13L,
     niter      = 3L,
     seed       = "reproducible",
-    params     = "Kuskokwim",
+    params     = "Ohlberger",
     output_dir = tempdir(),
     parallel   = FALSE
   )
@@ -135,7 +135,7 @@ test_that("results are reproducible: same seed gives identical recruits", {
     scenarios  = 13L,
     niter      = 1L,
     seed       = "reproducible",
-    params     = "Kuskokwim",
+    params     = "Ohlberger",
     output_dir = tempdir(),
     parallel   = FALSE
   )
