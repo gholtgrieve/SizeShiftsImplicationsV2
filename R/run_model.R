@@ -202,6 +202,7 @@ run_model <- function(config) {
   }
   ##-------------------------------------------## stochastic size at age
   meanSaA <- meanSaAdet + SaA_anoms
+  dimnames(meanSaA) <- list(Yvec, paste0("age", ages))  ## restore dimnames lost by + operator
   ################################################### end 4: Apply demographic trends
 
 
