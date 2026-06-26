@@ -304,6 +304,7 @@ run_model <- function(config) {
   nrev <- length(goalrev)
 
   ##-------## set initial MSY goal (esc or U) as mean/true values
+  msygoal <- NA_real_; msygoalini <- NA_real_  # default; overwritten for goal-based mgmt
   if (harvmgmt %in% c("smsy_goal","s_eq_goal","smsy_dlm_goal")) {
     msygoal <- S_msy_true; msygoalini <- msygoal
   }

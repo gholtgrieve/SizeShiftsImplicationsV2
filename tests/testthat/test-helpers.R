@@ -195,6 +195,7 @@ test_that(".calc_reprod_output at reference size matches reference values", {
   allom <- c(size_ref = 800, fec_ref = 6600, b_fec = 2.4,
              egg_ref = 916, b_eggs = 4.8)
   out <- SizeShiftsImplicationsV2:::.calc_reprod_output(size = 800, allometry = allom)
-  expect_equal(exp(out$fecundity), 6600, tolerance = 1e-6)
-  expect_equal(exp(out$eggmass),   916,  tolerance = 1e-6)
+  # unname() strips names inherited from the allometry vector before comparing
+  expect_equal(unname(exp(out$fecundity)), 6600, tolerance = 1e-6)
+  expect_equal(unname(exp(out$eggmass)),   916,  tolerance = 1e-6)
 })

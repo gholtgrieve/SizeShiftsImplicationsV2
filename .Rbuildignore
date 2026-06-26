@@ -13,3 +13,4 @@ inst/publishedData
 ^inst/publishedData$
 ^figures$
 ^LICENSE\.md$
+^\.claude$
