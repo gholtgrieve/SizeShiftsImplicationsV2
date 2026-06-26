@@ -76,7 +76,7 @@ run_scenarios <- function(scenarios,
   nyh      <- profile0$nyh %||% profile0$nyh_len
   ny       <- profile0$ny
   goalfreq <- profile0$goalfreq %||% profile0$goal_freq
-  firstrev <- 20L # hard-coded in run_model()
+  firstrev <- profile0$firstrev %||% 20L
   review_years  <- seq(from = nyi + firstrev, to = ny, by = goalfreq) # derived
   hist_end_year <- nyi + nyh # derived
 

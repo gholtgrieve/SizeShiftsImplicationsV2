@@ -68,7 +68,7 @@
   lnRS <- log(data$Rec / data$Esc)
   alpha_y <- beta_y <- NULL
   mod <- dlm::dlmModReg(data$Esc)
-  npara <- 3 + sum(c(var_alpha, var_beta))
+  npara <- 1 + sum(c(var_alpha, var_beta))  # 1 (V) + number of free W elements
 
   build_mod <- function(parm) {
     mod$V <- exp(parm[1])

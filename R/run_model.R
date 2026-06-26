@@ -69,8 +69,7 @@ run_model <- function(config) {
                                 rlnorm(1, meanlog = log(alpha_mean), sdlog = sr_parms_sd)
   )
   alpha.high <- alpha.low * regstr ## high productivity regime
-  aset <- 1 ## initial regime is assumed to be low productivity
-  if (reglength == 0) aset <- 1 ## also without regime shifts
+  aset <- 1 ## initial regime is low productivity
   alpha <- c(alpha.low, alpha.high)[aset] ## select alpha parameter
 
   ##---------------------------------------------## Ricker parameters and regimes: beta/rmax
@@ -152,6 +151,8 @@ run_model <- function(config) {
   yrs_h  <- (nyi + 1):max_yh   ## historical years index
   yrs_f  <- (nyi + nyh + 1):nyr## future years index
 
+  n_ref <- 5  ## years to average when freezing future trends
+
   ##=========================================================## mean age
   ## deterministic trend but age proportions drawn based on mean by year
   meanage <- NA
@@ -160,13 +161,12 @@ run_model <- function(config) {
   if (futureT == "yes") {
     for (y in yrs_f) meanage[y] <- meanage[y-1] + agetrend / (nyh)
   } else {
-    meanage[yrs_f] <- meanage[max_yh]
+    meanage[yrs_f] <- mean(meanage[(max_yh - n_ref + 1):max_yh])
   }
 
   ##===============================================## proportion female
   ## propF trend given as change over entire period in logit space
   propF_y <- NA; propF_y[1:nyi] <- stats::qlogis(propF)
-  n_ref <- 5
   for (y in yrs_h) { propF_y[y] <- propF_y[y-1] + propFtrend / (nyh) }
   if (futureT == "yes") {
     for (y in yrs_f) propF_y[y] <- propF_y[y-1] + propFtrend / (nyh)
@@ -300,7 +300,7 @@ run_model <- function(config) {
   # Derives goalrev review years, sets nrev, sets initial msygoal to S_msy_true or U_msy_true.
 
     if (harvmgmt == "fix_harv_rate") goalfreq <- FALSE
-  firstrev <- 20
+  firstrev <- config$firstrev %||% 20L
   if (goalfreq) { goalrev <- seq(nyi + firstrev, ny, goalfreq) } else { goalrev <- ny }
   nrev <- length(goalrev)
 
@@ -433,10 +433,11 @@ run_model <- function(config) {
         tab <- table(harvested)
 
         ## redistribute harvest to sexes using pre-harvest proportions
-        harv_prop_M <- ret_prop_by_sex_y[as.numeric(names(tab)), 1]
-        harv_by_age_sex[y, as.numeric(names(tab)), 1] <- round(tab * fac * harv_prop_M)
-        harv_prop_F <- ret_prop_by_sex_y[as.numeric(names(tab)), 2]
-        harv_by_age_sex[y, as.numeric(names(tab)), 2] <- round(tab * fac * harv_prop_F)
+        age_idx     <- match(as.numeric(names(tab)), ages)  # positions in ages vector, not raw values
+        harv_prop_M <- ret_prop_by_sex_y[age_idx, 1]
+        harv_by_age_sex[y, age_idx, 1] <- round(tab * fac * harv_prop_M)
+        harv_prop_F <- ret_prop_by_sex_y[age_idx, 2]
+        harv_by_age_sex[y, age_idx, 2] <- round(tab * fac * harv_prop_F)
         harv_by_age_sex[is.na(harv_by_age_sex)] <- 0
 
         ## avoid over-harvesting of age-by-sex groups (approximation fix)
@@ -625,7 +626,6 @@ run_model <- function(config) {
     age_comp_harv_obs <- round(age_comp_harv_obs)
 
     ##----------------------------------------## recruitment by brood year
-    nage <- length(ages)
     dataObs$recRec <- NA
     age_comp_ret_obs_byBY <- array(NA, dim = dim(age_comp_harv_obs))
     for (yy in (nyi + 1):(nyi + ny - nage)) {

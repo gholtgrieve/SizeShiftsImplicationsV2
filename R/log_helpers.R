@@ -4,8 +4,6 @@
 
 # ============== tiny utilities ===============================================
 
-`%||%` <- function(x, y) if (!is.null(x)) x else y
-
 fun_log_dir <- function(config = NULL) {
   # Priority: config$log_dir -> option -> ./logs
   d <- config$log_dir %||% getOption("ssi.log_dir")

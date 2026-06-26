@@ -73,7 +73,7 @@ param_configs <- list(
     reglength = 20, regstr = 1,
 
     # management defaults (scenario sets harvmgmt/factorMSY at runtime)
-    harvrate = 0.5, goalfreq = 10,
+    harvrate = 0.5, goalfreq = 10, firstrev = 20L,
 
     # stock–recruit process
     procerr = 0.35,
