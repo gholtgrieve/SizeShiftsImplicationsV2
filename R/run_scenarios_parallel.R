@@ -101,7 +101,8 @@ run_scenarios <- function(scenarios,
 
   ## --- Progress setup
   total_steps <- nscen * niter
-  progressr::handlers(global = TRUE)
+  # global handler conflicts with testthat's handler stack; skip silently if needed
+  try(progressr::handlers(global = TRUE), silent = TRUE)
   # If you want a simple console bar, uncomment:
   # progressr::handlers("txtprogressbar")
 
