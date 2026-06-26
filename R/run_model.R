@@ -282,9 +282,9 @@ run_model <- function(config) {
                                      meanage[y] + agediff/2, sdage,
                                      seed = seednum + 531L + y
     )
-    for (k in 1:nage) {
-      ret_by_age_sex[y + k, k, 1] <- age_comp[y, k, 1]
-      ret_by_age_sex[y + k, k, 2] <- age_comp[y, k, 2]
+    for (ai in 1:nage) {
+      ret_by_age_sex[y + ai, ai, 1] <- age_comp[y, ai, 1]
+      ret_by_age_sex[y + ai, ai, 2] <- age_comp[y, ai, 2]
     }
 
     ##-----------------------## generate escapement observations from data
@@ -514,9 +514,9 @@ run_model <- function(config) {
                                        meanage[y] + agediff/2, sdage,
                                        seed = seednum + 6710L + y
       )
-      for (k in 1:nage) {
-        ret_by_age_sex[y + k, k, 1] <- age_comp[y, k, 1]
-        ret_by_age_sex[y + k, k, 2] <- age_comp[y, k, 2]
+      for (ai in 1:nage) {
+        ret_by_age_sex[y + ai, ai, 1] <- age_comp[y, ai, 1]
+        ret_by_age_sex[y + ai, ai, 2] <- age_comp[y, ai, 2]
       }
 
       ObsDat$obsEsc[y] <- PopDat$Esc[y] * exp(withr::with_seed(seednum + 6800L + y,
