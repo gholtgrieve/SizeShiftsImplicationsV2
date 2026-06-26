@@ -23,74 +23,84 @@ local({
   )
 
   # ── Diagnostic plots saved alongside the RDS ──────────────────────────────
-  try({
-    library(ggplot2)
-
+  tryCatch({
     niter_run <- .run$meta$niter
 
     # Collect annual data across all iterations
     df <- do.call(rbind, lapply(seq_len(niter_run), function(k) {
-      d       <- .run$results$data[[1]][[k]]
-      d$iter  <- k
+      d <- .run$results$data[[1]][[k]]
+      d$iter <- k
       d
     }))
 
-    cols <- c("Recruitment", "Escapement", "Harvest")
+    # Summary helper: median + 10/90 quantiles per year for one column
+    yr_summary <- function(col, label) {
+      years <- sort(unique(df$Year))
+      do.call(rbind, lapply(years, function(y) {
+        x <- df[[col]][df$Year == y]
+        data.frame(Year = y, metric = label,
+                   med  = median(x, na.rm = TRUE),
+                   lo   = unname(quantile(x, 0.10, na.rm = TRUE)),
+                   hi   = unname(quantile(x, 0.90, na.rm = TRUE)))
+      }))
+    }
 
-    # -- Plot 1: population dynamics ------------------------------------------
-    dyn <- do.call(rbind, lapply(c(Rec = "Recruitment", Esc = "Escapement", Harv = "Harvest"), function(metric) {
-      raw_col <- names(which(c(Rec = "Recruitment", Esc = "Escapement", Harv = "Harvest") == metric))
-      agg <- aggregate(df[[raw_col]], by = list(Year = df$Year), FUN = function(x) {
-        c(med = median(x, na.rm = TRUE),
-          lo  = quantile(x, 0.1, na.rm = TRUE),
-          hi  = quantile(x, 0.9, na.rm = TRUE))
-      })
-      data.frame(Year   = agg$Year,
-                 metric = metric,
-                 med    = agg$x[, "med"],
-                 lo     = agg$x[, "lo"],
-                 hi     = agg$x[, "hi"])
-    }))
+    dyn <- rbind(yr_summary("Rec",  "Recruitment"),
+                 yr_summary("Esc",  "Escapement"),
+                 yr_summary("Harv", "Harvest"))
     dyn$metric <- factor(dyn$metric, levels = c("Recruitment", "Escapement", "Harvest"))
 
-    p1 <- ggplot(dyn, aes(Year)) +
-      geom_ribbon(aes(ymin = lo, ymax = hi), fill = "#2166ac", alpha = 0.2) +
-      geom_line(aes(y = med), colour = "#2166ac", linewidth = 0.8) +
-      facet_wrap(~metric, ncol = 1, scales = "free_y") +
-      scale_y_continuous(labels = scales::comma) +
-      labs(title    = "Population dynamics — integration test run",
-           subtitle = sprintf("Ohlberger | smsy_goal | scen 13 | %d iterations", niter_run),
-           x = "Simulation year", y = NULL) +
-      theme_minimal(base_size = 11) +
-      theme(strip.text = element_text(face = "bold"),
-            plot.title = element_text(face = "bold"))
+    # -- Plot 1: population dynamics ------------------------------------------
+    p1 <- ggplot2::ggplot(dyn, ggplot2::aes(Year)) +
+      ggplot2::geom_ribbon(ggplot2::aes(ymin = lo, ymax = hi),
+                           fill = "#2166ac", alpha = 0.2) +
+      ggplot2::geom_line(ggplot2::aes(y = med),
+                         colour = "#2166ac", linewidth = 0.8) +
+      ggplot2::facet_wrap(~metric, ncol = 1, scales = "free_y") +
+      ggplot2::scale_y_continuous(labels = scales::comma) +
+      ggplot2::labs(
+        title    = "Population dynamics — integration test run",
+        subtitle = sprintf("Ohlberger | smsy_goal | scen 13 | %d iterations", niter_run),
+        x = "Simulation year", y = NULL
+      ) +
+      ggplot2::theme_minimal(base_size = 11) +
+      ggplot2::theme(strip.text = ggplot2::element_text(face = "bold"),
+                     plot.title = ggplot2::element_text(face = "bold"))
 
-    ggsave(file.path(.test_out_dir, "plot_dynamics.png"),
-           p1, width = 7, height = 6, dpi = 150)
+    ggplot2::ggsave(file.path(.test_out_dir, "plot_dynamics.png"),
+                    p1, width = 7, height = 6, dpi = 150)
 
     # -- Plot 2: stock-recruit ------------------------------------------------
-    sr <- df[!is.na(df$Esc) & !is.na(df$Rec) & df$Esc > 0 & df$Rec > 0, ]
-    alpha_med <- median(sapply(seq_len(niter_run), function(k) .run$results$para[[1]][[k]]["alpha.low"]))
-    beta_med  <- median(sapply(seq_len(niter_run), function(k) .run$results$para[[1]][[k]]["beta"]))
+    sr        <- df[!is.na(df$Esc) & !is.na(df$Rec) & df$Esc > 0 & df$Rec > 0, ]
+    alpha_med <- median(sapply(seq_len(niter_run),
+                               function(k) unname(.run$results$para[[1]][[k]]["alpha.low"])))
+    beta_med  <- median(sapply(seq_len(niter_run),
+                               function(k) unname(.run$results$para[[1]][[k]]["beta"])))
     s_seq     <- seq(0, max(sr$Esc, na.rm = TRUE) * 1.05, length.out = 300)
-    crv       <- data.frame(Esc = s_seq, Rec = alpha_med * s_seq * exp(-beta_med * s_seq))
+    crv       <- data.frame(Esc = s_seq,
+                            Rec = alpha_med * s_seq * exp(-beta_med * s_seq))
 
-    p2 <- ggplot(sr, aes(Esc, Rec)) +
-      geom_point(alpha = 0.3, colour = "#2166ac", size = 1) +
-      geom_line(data = crv, colour = "#d6604d", linewidth = 1.1) +
-      geom_abline(slope = 1, intercept = 0, linetype = "dashed", colour = "grey60") +
-      scale_x_continuous(labels = scales::comma) +
-      scale_y_continuous(labels = scales::comma) +
-      labs(title    = "Stock-recruit relationship — integration test run",
-           subtitle = "Points = simulated years; red curve = median Ricker fit",
-           x = "Escapement (S)", y = "Recruitment (R)") +
-      theme_minimal(base_size = 11) +
-      theme(plot.title = element_text(face = "bold"))
+    p2 <- ggplot2::ggplot(sr, ggplot2::aes(Esc, Rec)) +
+      ggplot2::geom_point(alpha = 0.3, colour = "#2166ac", size = 1) +
+      ggplot2::geom_line(data = crv, colour = "#d6604d", linewidth = 1.1) +
+      ggplot2::geom_abline(slope = 1, intercept = 0,
+                           linetype = "dashed", colour = "grey60") +
+      ggplot2::scale_x_continuous(labels = scales::comma) +
+      ggplot2::scale_y_continuous(labels = scales::comma) +
+      ggplot2::labs(
+        title    = "Stock-recruit relationship — integration test run",
+        subtitle = "Points = simulated years; red curve = median Ricker fit",
+        x = "Escapement (S)", y = "Recruitment (R)"
+      ) +
+      ggplot2::theme_minimal(base_size = 11) +
+      ggplot2::theme(plot.title = ggplot2::element_text(face = "bold"))
 
-    ggsave(file.path(.test_out_dir, "plot_stock_recruit.png"),
-           p2, width = 6, height = 5, dpi = 150)
+    ggplot2::ggsave(file.path(.test_out_dir, "plot_stock_recruit.png"),
+                    p2, width = 6, height = 5, dpi = 150)
 
-  }, silent = TRUE)   # plotting failure never blocks the tests
+  }, error = function(e) {
+    message("Diagnostic plots failed (tests unaffected): ", conditionMessage(e))
+  })
   # ── end diagnostic plots ──────────────────────────────────────────────────
 })
 
