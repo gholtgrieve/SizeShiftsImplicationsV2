@@ -213,7 +213,6 @@ test_that("BUG2 (init fecundity): RepOut is consistent between init and main sim
   # This test checks that RepOut per-spawner (a proxy for fecundity consistency)
   # does not show a discontinuity between the last init year and first main year.
   # A large jump would indicate the two sections are computing RepOut differently.
-  skip("BUG2 not yet fixed -- run_model.R:235-239: init-year sizes_y uses male age composition scaled to total escapement. See code_review.txt for details.")
 
   cfg <- make_minimal_config(sim_recruits = "eggmass")
   out <- SizeShiftsImplicationsV2:::run_model(cfg)

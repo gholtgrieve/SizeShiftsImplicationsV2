@@ -233,11 +233,11 @@ run_model <- function(config) {
     ##----------------------------------## alternative reproductive units
     if (sim_recruits != "spawners") {
       age_comp_y <- .calc_agecomp(
-        ages = ages, recruits = round(PopDat$Esc[y] * (1 - propfemale[y])),
-        meanage = meanage[y] - agediff / 2, sdage = sdage,
+        ages = ages, recruits = round(PopDat$Esc[y] * propfemale[y]),
+        meanage = meanage[y] + agediff / 2, sdage = sdage,
         seed = seednum + 515L + y
       )
-      sizes_y <- rep(meanSaA[y,], prop.table(age_comp_y) * PopDat$Esc[y])
+      sizes_y <- rep(meanSaA[y,], times = age_comp_y)
 
       if (sim_recruits == "fecundity") {
         fecundity_total <- round(sum(exp(.calc_reprod_output(sizes_y, allometry)[[1]])))
