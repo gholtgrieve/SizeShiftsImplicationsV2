@@ -1,18 +1,22 @@
-.Rproj.user
+# R session artifacts
 .Rhistory
-.Rdata
-.httr-oauth
-.DS_Store
-.quarto
-outputs/
 .RData
 .Ruserdata
+
+# RStudio local state
 .Rproj.user/
-*.Rproj
-data-raw
-figures
-outputs/
-inst/publishedData
+
+# macOS
+.DS_Store
+
+# OAuth tokens
+.httr-oauth
+
+# Quarto
+.quarto
+
+# Generated / not distributed with package (see also .Rbuildignore)
+data-raw/
+figures/
 outputs/
 inst/publishedData/
-figures/
