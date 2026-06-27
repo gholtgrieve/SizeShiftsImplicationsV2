@@ -2,7 +2,25 @@
 % Please edit documentation in R/plotting_helpers.R
 \name{.standardize_scenario_labels}
 \alias{.standardize_scenario_labels}
-\title{Internal plotting helpers (not exported)}
+\title{Helper: Standardize scenario labels and factor orders (internal)
+Ensures consistent printed labels across all figures and summaries.
+\itemize{
+\item \strong{factorMSY}: \code{0.75} → "liberal", \code{1} → "MSY", \code{1.5} → "precautionary"
+\item \strong{trends}:
+\itemize{
+\item "no trends" (and "No trends") → "no trends"
+\item "age-sex-length trends" → "ASL trends stabilized"
+\item "age-length trends" → "AL trends stabilized"
+\item "continuing trends" → "ASL trends continued"
+}
+\item \strong{mgmt}: map common long-form to short codes: "smsy_goal" → "TRM", "s_eq_goal" → "YPR", "smsy_dlm_goal" → "DLM"
+\item \strong{selectivity}: standardize to "small-mesh", "unselective", "large-mesh"
+If a column is absent, it is ignored. Factors are (re)leveled for stable facet/legend order:
+\item \code{factorMSY}: \code{c("liberal","MSY","precautionary")}
+\item \code{trends}:    \code{c("no trends","ASL trends stabilized","AL trends stabilized","ASL trends continued")}
+\item \code{mgmt}:      \code{c("TRM","YPR","DLM")} (plus any other levels appended at end, if present)
+\item \code{selectivity}: \code{c("small-mesh","unselective","large-mesh")}
+}}
 \usage{
 .standardize_scenario_labels(df)
 }
@@ -13,97 +31,24 @@
 The same data.frame with standardized character values and ordered factors.
 }
 \description{
-Internal plotting helpers (not exported)
+Helper: Standardize scenario labels and factor orders (internal)
+Ensures consistent printed labels across all figures and summaries.
+\itemize{
+\item \strong{factorMSY}: \code{0.75} → "liberal", \code{1} → "MSY", \code{1.5} → "precautionary"
+\item \strong{trends}:
+\itemize{
+\item "no trends" (and "No trends") → "no trends"
+\item "age-sex-length trends" → "ASL trends stabilized"
+\item "age-length trends" → "AL trends stabilized"
+\item "continuing trends" → "ASL trends continued"
 }
-\keyword{"AL}
-\keyword{"ASL}
-\keyword{"DLM"}
-\keyword{"MSY",}
-\keyword{"No}
-\keyword{"TRM",}
-\keyword{"YPR",}
-\keyword{"age-length}
-\keyword{"age-sex-length}
-\keyword{"continuing}
-\keyword{"large-mesh"}
-\keyword{"liberal",}
-\keyword{"no}
-\keyword{"precautionary"}
-\keyword{"s_eq_goal"}
-\keyword{"small-mesh",}
-\keyword{"smsy_dlm_goal"}
-\keyword{"smsy_goal"}
-\keyword{"unselective",}
-\keyword{(and}
-\keyword{(internal)}
-\keyword{(plus}
-\keyword{(re)leveled}
-\keyword{**factorMSY**:}
-\keyword{**mgmt**:}
-\keyword{**selectivity**:}
-\keyword{**trends**:}
-\keyword{-}
-\keyword{Ensures}
-\keyword{Factors}
-\keyword{Helper:}
-\keyword{If}
-\keyword{Standardize}
-\keyword{`0.75`}
-\keyword{`1.5`}
-\keyword{`1`}
-\keyword{`c("TRM","YPR","DLM")`}
-\keyword{`c("liberal","MSY","precautionary")`}
-\keyword{`c("no}
-\keyword{`c("small-mesh","unselective","large-mesh")`}
-\keyword{`factorMSY`:}
-\keyword{`mgmt`:}
-\keyword{`selectivity`:}
-\keyword{`trends`:}
-\keyword{a}
-\keyword{absent,}
-\keyword{across}
-\keyword{all}
-\keyword{and}
-\keyword{any}
-\keyword{appended}
-\keyword{are}
-\keyword{at}
-\keyword{codes:}
-\keyword{column}
-\keyword{common}
-\keyword{consistent}
-\keyword{continued"}
-\keyword{continued")`}
-\keyword{end,}
-\keyword{facet/legend}
-\keyword{factor}
-\keyword{figures}
-\keyword{for}
-\keyword{if}
-\keyword{ignored.}
+\item \strong{mgmt}: map common long-form to short codes: "smsy_goal" → "TRM", "s_eq_goal" → "YPR", "smsy_dlm_goal" → "DLM"
+\item \strong{selectivity}: standardize to "small-mesh", "unselective", "large-mesh"
+If a column is absent, it is ignored. Factors are (re)leveled for stable facet/legend order:
+\item \code{factorMSY}: \code{c("liberal","MSY","precautionary")}
+\item \code{trends}:    \code{c("no trends","ASL trends stabilized","AL trends stabilized","ASL trends continued")}
+\item \code{mgmt}:      \code{c("TRM","YPR","DLM")} (plus any other levels appended at end, if present)
+\item \code{selectivity}: \code{c("small-mesh","unselective","large-mesh")}
+}
+}
 \keyword{internal}
-\keyword{is}
-\keyword{it}
-\keyword{labels}
-\keyword{levels}
-\keyword{long-form}
-\keyword{map}
-\keyword{order:}
-\keyword{orders}
-\keyword{other}
-\keyword{present)}
-\keyword{printed}
-\keyword{scenario}
-\keyword{short}
-\keyword{stabilized"}
-\keyword{stabilized","AL}
-\keyword{stabilized","ASL}
-\keyword{stable}
-\keyword{standardize}
-\keyword{summaries.}
-\keyword{to}
-\keyword{trends}
-\keyword{trends"}
-\keyword{trends")}
-\keyword{trends","ASL}
-\keyword{→}

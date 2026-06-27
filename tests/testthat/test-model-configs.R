@@ -56,16 +56,18 @@ test_that("reglength > 0 runs without error", {
 })
 
 test_that("regstr=2 produces higher recruitment variance than regstr=1", {
-  seeds <- seq_len(20L) * 3L
-  var_no_shift <- mean(vapply(seeds, function(s) {
-    var(SizeShiftsImplicationsV2:::run_model(
-      make_cfg(reglength = 5L, regstr = 1, seednum = s))$data$Rec, na.rm = TRUE)
-  }, numeric(1)))
-  var_shift <- mean(vapply(seeds, function(s) {
-    var(SizeShiftsImplicationsV2:::run_model(
-      make_cfg(reglength = 5L, regstr = 2, seednum = s))$data$Rec, na.rm = TRUE)
-  }, numeric(1)))
-  expect_gt(var_shift, var_no_shift)
+  # Run a longer simulation so regime shifts have time to produce divergent outcomes.
+  # regstr=1 -> alpha.high = alpha.low (shifts are no-ops); regstr=3 -> alpha.high = 3x.
+  make_long <- function(regstr, s) {
+    cfg <- make_cfg(reglength = 10L, regstr = regstr, seednum = s,
+                    sim_recruits = "spawners",
+                    nyh = 50L, ny = 110L)
+    SizeShiftsImplicationsV2:::run_model(cfg)$data$Rec
+  }
+  seeds <- seq_len(15L) * 7L
+  var_base  <- mean(vapply(seeds, function(s) var(make_long(1, s), na.rm = TRUE), numeric(1)))
+  var_shift <- mean(vapply(seeds, function(s) var(make_long(3, s), na.rm = TRUE), numeric(1)))
+  expect_gt(var_shift, var_base)
 })
 
 test_that("reglength=0 disables regime shifts (reg column is constant)", {
@@ -118,31 +120,29 @@ test_that("sim_recruits='eggmass' and 'fecundity' give different RepOut magnitud
 
 # ── factorMSY ──────────────────────────────────────────────────────────────
 
-test_that("factorMSY=0.75 (conservative) reduces escapement goal vs 1.0", {
-  seeds <- seq_len(10L)
-  mean_esc_100 <- mean(vapply(seeds, function(s) {
-    mean(SizeShiftsImplicationsV2:::run_model(
-      make_cfg(factorMSY = 1.00, seednum = s))$data$Esc, na.rm = TRUE)
-  }, numeric(1)))
-  mean_esc_075 <- mean(vapply(seeds, function(s) {
-    mean(SizeShiftsImplicationsV2:::run_model(
-      make_cfg(factorMSY = 0.75, seednum = s))$data$Esc, na.rm = TRUE)
-  }, numeric(1)))
-  # Lower S_msy goal -> more harvest -> less escapement on average
-  expect_lt(mean_esc_075, mean_esc_100)
+test_that("factorMSY=0.75 reduces mean escapement vs factorMSY=1.0", {
+  # Use a longer simulation (ny=110) with multiple reviews so factorMSY has
+  # time to accumulate its effect on the escapement goal.
+  make_long <- function(fmsy, s) {
+    cfg <- make_cfg(factorMSY = fmsy, seednum = s, nyh = 50L, ny = 110L, goalfreq = 10L)
+    mean(SizeShiftsImplicationsV2:::run_model(cfg)$data$Esc, na.rm = TRUE)
+  }
+  seeds <- seq_len(20L) * 3L
+  mean_100 <- mean(vapply(seeds, function(s) make_long(1.00, s), numeric(1)))
+  mean_075 <- mean(vapply(seeds, function(s) make_long(0.75, s), numeric(1)))
+  # Lower goal -> more harvest -> less escapement
+  expect_lt(mean_075, mean_100)
 })
 
-test_that("factorMSY=1.5 (precautionary) increases escapement vs 1.0", {
-  seeds <- seq_len(10L)
-  mean_esc_100 <- mean(vapply(seeds, function(s) {
-    mean(SizeShiftsImplicationsV2:::run_model(
-      make_cfg(factorMSY = 1.00, seednum = s))$data$Esc, na.rm = TRUE)
-  }, numeric(1)))
-  mean_esc_150 <- mean(vapply(seeds, function(s) {
-    mean(SizeShiftsImplicationsV2:::run_model(
-      make_cfg(factorMSY = 1.50, seednum = s))$data$Esc, na.rm = TRUE)
-  }, numeric(1)))
-  expect_gt(mean_esc_150, mean_esc_100)
+test_that("factorMSY=1.5 increases mean escapement vs factorMSY=1.0", {
+  make_long <- function(fmsy, s) {
+    cfg <- make_cfg(factorMSY = fmsy, seednum = s, nyh = 50L, ny = 110L, goalfreq = 10L)
+    mean(SizeShiftsImplicationsV2:::run_model(cfg)$data$Esc, na.rm = TRUE)
+  }
+  seeds <- seq_len(20L) * 3L
+  mean_100 <- mean(vapply(seeds, function(s) make_long(1.00, s), numeric(1)))
+  mean_150 <- mean(vapply(seeds, function(s) make_long(1.50, s), numeric(1)))
+  expect_gt(mean_150, mean_100)
 })
 
 

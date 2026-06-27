@@ -96,18 +96,18 @@
       ggplot2::aes(ymin = .data$harv_q10, ymax = .data$harv_q90),
       linewidth = 0.4, alpha = 0.9, width = 0
     ) +
-    ggplot2::geom_errorbarh(
+    ggplot2::geom_errorbar(
       ggplot2::aes(xmin = .data$esc_q10, xmax = .data$esc_q90),
-      width = 0, linewidth = 0.4, alpha = 0.9
+      width = 0, linewidth = 0.4, alpha = 0.9, orientation = "y"
     ) +
     # 50% intervals (thick): q25–q75
     ggplot2::geom_errorbar(
       ggplot2::aes(ymin = .data$harv_q25, ymax = .data$harv_q75),
       linewidth = 0.9, width = 0
     ) +
-    ggplot2::geom_errorbarh(
+    ggplot2::geom_errorbar(
       ggplot2::aes(xmin = .data$esc_q25, xmax = .data$esc_q75),
-      width = 0, linewidth = 0.9
+      width = 0, linewidth = 0.9, orientation = "y"
     ) +
     # 1:1 diagonal line (drawn within each panel)
     ggplot2::geom_abline(slope = 1, intercept = 0,

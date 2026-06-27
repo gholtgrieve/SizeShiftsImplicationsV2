@@ -8,6 +8,17 @@ make_sr_data <- function(n = 20, seed = 1L) {
   })
 }
 
+# Data with a clear declining productivity trend so the DLM's time-varying
+# state has signal to track (static data can correctly produce W=0, i.e. no variation).
+make_trending_sr_data <- function(n = 40, seed = 1L) {
+  withr::with_seed(seed, {
+    Esc       <- round(runif(n, 5000, 20000))
+    log_alpha <- seq(log(6), log(2), length.out = n)  # alpha declines 6 -> 2
+    Rec       <- round(Esc * exp(log_alpha - 5e-5 * Esc + rnorm(n, 0, 0.2)))
+    data.frame(Esc = Esc, Rec = pmax(Rec, 1L))
+  })
+}
+
 # ── Structure ──────────────────────────────────────────────────────────────
 
 test_that(".calc_DLMfit returns list with results, AICc, sigma", {
@@ -68,14 +79,16 @@ test_that(".calc_DLMfit AICc uses correct npara (1 + k, not 3 + k)", {
 
 # ── Time-varying behaviour ─────────────────────────────────────────────────
 
-test_that(".calc_DLMfit var_alpha=TRUE produces time-varying alpha_y", {
-  out <- SizeShiftsImplicationsV2:::.calc_DLMfit(make_sr_data(n = 30), var_alpha = TRUE, var_beta = FALSE)
-  # alpha_y should vary across years when var_alpha = TRUE
-  expect_gt(var(out$results$alpha_y), 0)
+test_that(".calc_DLMfit var_alpha=TRUE tracks a declining alpha trend", {
+  # Use trending data so the DLM has a signal to track; static data can
+  # correctly return W[1,1]=0 (no variation), which is also a valid result.
+  out <- SizeShiftsImplicationsV2:::.calc_DLMfit(make_trending_sr_data(), var_alpha = TRUE, var_beta = FALSE)
+  # With a 6->2 alpha decline, smoothed alpha_y should also decline
+  expect_gt(out$results$alpha_y[1], out$results$alpha_y[nrow(out$results)])
 })
 
-test_that(".calc_DLMfit var_beta=FALSE produces near-constant beta_y", {
-  out <- SizeShiftsImplicationsV2:::.calc_DLMfit(make_sr_data(n = 30), var_alpha = TRUE, var_beta = FALSE)
-  # beta_y should be nearly constant (smoothed state, fixed W[2,2]=0)
+test_that(".calc_DLMfit var_beta=FALSE has less variation in beta_y than alpha_y", {
+  # On trending data, alpha_y varies while beta_y (W[2,2]=0) stays near constant.
+  out <- SizeShiftsImplicationsV2:::.calc_DLMfit(make_trending_sr_data(), var_alpha = TRUE, var_beta = FALSE)
   expect_lt(var(out$results$beta_y), var(out$results$alpha_y))
 })

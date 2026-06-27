@@ -68,18 +68,18 @@
       ggplot2::aes(ymin = .data$closure_q10, ymax = .data$closure_q90),
       linewidth = 0.4, alpha = 0.9, width = 0
     ) +
-    ggplot2::geom_errorbarh(
+    ggplot2::geom_errorbar(
       ggplot2::aes(xmin = .data$harv_q10, xmax = .data$harv_q90),
-      width = 0, linewidth = 0.4, alpha = 0.9
+      width = 0, linewidth = 0.4, alpha = 0.9, orientation = "y"
     ) +
     # 50% intervals (thick)
     ggplot2::geom_errorbar(
       ggplot2::aes(ymin = .data$closure_q25, ymax = .data$closure_q75),
       linewidth = 0.9, width = 0
     ) +
-    ggplot2::geom_errorbarh(
+    ggplot2::geom_errorbar(
       ggplot2::aes(xmin = .data$harv_q25, xmax = .data$harv_q75),
-      width = 0, linewidth = 0.9
+      width = 0, linewidth = 0.9, orientation = "y"
     ) +
     # Points
     ggplot2::geom_point(shape = 1, size = 2.5, fill = NA, color = "black") +

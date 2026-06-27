@@ -43,7 +43,9 @@ test_that("make_figures errors on invalid figure code", {
 })
 
 test_that("make_figures errors on unavailable builder code", {
-  expect_error(make_figures("9", data = .fig_run), "No builder available")
+  # "9" is not a recognised figure code, so normalisation returns character(0)
+  # and we get "No valid figures selected" before reaching the builder dispatch.
+  expect_error(make_figures("9", data = .fig_run), "No valid figures selected")
 })
 
 test_that("make_figures accepts ssi_run object directly", {

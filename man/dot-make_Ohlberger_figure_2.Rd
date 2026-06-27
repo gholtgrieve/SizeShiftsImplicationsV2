@@ -101,9 +101,4 @@ Ohlberger, J., Schindler, D. E., & Staton, B. A. (2025). Accounting for
 salmon body size declines in fishery management can reduce conservation
 risks. \emph{Fish and Fisheries}, 26, 113–130. https://doi.org/10.1111/faf.12869
 }
-\keyword{(internal)}
-\keyword{2}
-\keyword{Figure}
-\keyword{Make}
-\keyword{Ohlberger}
 \keyword{internal}

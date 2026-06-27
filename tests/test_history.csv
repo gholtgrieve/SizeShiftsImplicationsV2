@@ -1,6 +1,0 @@
-"timestamp","commit","label","pass","fail","skip","warn"
-"2026-06-26 10:00:00","59add68","Tests written (first run)","0","0","0","0"
-"2026-06-26 10:10:00","59add68","Before fixes: msygoal + name mismatch","27","2","2","0"
-"2026-06-26 10:20:00","63e6b62","Fix msygoal init + unname()","85","4","2","0"
-"2026-06-26 10:30:00","0d16e61","Fix rep(NA,NA) + filter mgmt value","89","0","2","0"
-"2026-06-26 10:40:00","1142ae5","Fix Bug 1: regime shift alpha","90","0","1","0"
