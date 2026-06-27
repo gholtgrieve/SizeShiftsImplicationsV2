@@ -570,8 +570,8 @@ run_model <- function(config) {
     log_a_sim <- summary(mod_sim)$coefficients[1] ## log-productivity
     a_sim <- exp(log_a_sim) ## productivity (alpha)
     b_sim <- -summary(mod_sim)$coefficients[2] ## density-dependence (beta)
-    alpha_sim <- exp(log_a_sim + 0.5 * sig_sim^2) #Recoded to drop phi from the lognormal bias correction
-    beta_sim  <- b_sim * (alpha_sim / a_sim) #Recoded to drop phi from the lognormal bias correction
+    alpha_sim <- exp(log_a_sim + 0.5 * sig_sim^2 / (1 - phi_sim^2))
+    beta_sim  <- b_sim * (alpha_sim / a_sim)
     S_msy_sim <- (1 - gsl::lambert_W0(exp(1 - log(alpha_sim)))) / beta_sim
     U_msy_sim <- (1 - gsl::lambert_W0(exp(1 - log(alpha_sim))))
     S_max_sim <- 1 / beta_sim
@@ -664,8 +664,8 @@ run_model <- function(config) {
       log_a_obs <- summary(mod_obs)$coefficients[1]
       a_obs <- exp(log_a_obs)
       b_obs <- -summary(mod_obs)$coefficients[2]
-      alpha_obs <- exp(log_a_obs + 0.5 * sig_obs^2) #Recoded to drop phi from the lognormal bias correction
-      beta_obs  <- b_obs * (alpha_obs / a_obs) #Recoded to drop phi from the lognormal bias correction
+      alpha_obs <- exp(log_a_obs + 0.5 * sig_obs^2 / (1 - phi_obs^2))
+      beta_obs  <- b_obs * (alpha_obs / a_obs)
       S_msy_obs <- (1 - gsl::lambert_W0(exp(1 - log(alpha_obs)))) / beta_obs
       U_msy_obs <- (1 - gsl::lambert_W0(exp(1 - log(alpha_obs))))
       S_max_obs <- 1 / beta_obs
@@ -757,8 +757,8 @@ run_model <- function(config) {
       log_a_rep_out <- summary(mod_rep_out)$coefficients[1]
       a_rep_out <- exp(log_a_rep_out)
       b_rep_out <- -summary(mod_rep_out)$coefficients[2]
-      alpha_rep_out <- exp(log_a_rep_out + 0.5 * sig_rep_out^2)  #Recoded to drop phi from the lognormal bias correction
-      beta_rep_out  <- b_rep_out * (alpha_rep_out / a_rep_out)  #Recoded to drop phi from the lognormal bias correction
+      alpha_rep_out <- exp(log_a_rep_out + 0.5 * sig_rep_out^2 / (1 - phi_rep_out^2))
+      beta_rep_out  <- b_rep_out * (alpha_rep_out / a_rep_out)
       sr_rep_out <- data.frame(rbind(c(alpha_rep_out, beta_rep_out, phi_rep_out, sig_rep_out)))
       colnames(sr_rep_out) <- c("alpha","beta","rho","sigma")
 
