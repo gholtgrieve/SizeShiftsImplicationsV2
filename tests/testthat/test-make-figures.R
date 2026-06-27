@@ -127,6 +127,7 @@ test_that("duplicate figure codes are deduplicated", {
 
 test_that("make_figures creates figure_dir if it does not exist", {
   new_dir <- file.path(.fig_out_dir, "brand_new_subdir")
+  unlink(new_dir, recursive = TRUE)  # idempotent: handles re-runs in the same R session
   expect_false(dir.exists(new_dir))
   make_figures("A", data = .fig_run, figure_dir = new_dir)
   expect_true(dir.exists(new_dir))
