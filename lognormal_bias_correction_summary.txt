@@ -1,0 +1,122 @@
+================================================================================
+LOGNORMAL BIAS CORRECTION IN THE MSE MODEL
+================================================================================
+
+
+CONTEXT
+-------
+The model fits a linearized Ricker stock-recruitment relationship using
+Generalized Least Squares (GLS) with an AR(1) correlation structure
+(nlme::gls(..., correlation = nlme::corAR1())). This is done in three places:
+
+  Section 7C -- GLS on simulated true data:          lnRS ~ Esc
+  Section 7E -- GLS on reconstructed observed data:  obslnRS ~ obsEsc
+                (used for smsy_goal / umsy_goal management)
+  Section 7G -- GLS on reproductive output data:     lnRperRU ~ RepOut
+                (used for YPR management, s_eq_goal / u_eq_goal)
+
+The model form in all three cases is:
+
+  ln(R/S) = log(a) - b·S + ε_t
+  ε_t = φ · ε_{t-1} + δ_t,   δ_t ~ N(0, σ²)
+
+where:
+  a   = exp(intercept) from the GLS fit
+  b   = -slope from the GLS fit
+  φ   = AR(1) autocorrelation coefficient (nlme corAR1 estimate)
+  σ   = innovation standard deviation (nlme's summary(mod)$sigma)
+
+Note: nlme reports the innovation SD (σ of the white-noise δ_t), NOT the
+total process SD. The variance of the stationary AR(1) process is σ²/(1-φ²).
+
+
+WHAT THE BIAS CORRECTION DOES
+------------------------------
+The GLS model is fit in log-space. To convert from the log-space estimates
+back to natural-scale productivity (alpha), a lognormal bias correction is
+applied.
+
+Formula currently in the code (run_model.R lines 573, 667, 760):
+
+  alpha <- exp(log_a + 0.5 * sigma^2 / (1 - phi^2))
+  beta  <- b * (alpha / a)
+
+Rationale:
+Because the model is fit in log-space with normally distributed errors,
+the expected (mean) value of R/S in natural space is:
+
+  E[R/S] = exp(log_a - b·S) · exp(0.5 · Var(ε))
+
+The variance of the stationary AR(1) process ε_t is σ²/(1-φ²), so the
+full correction to go from the median to the mean is:
+
+  alpha_corrected = exp(log_a + 0.5 · σ² / (1 - φ²))
+
+The beta correction follows from maintaining consistency between the two
+parameterizations:
+
+  beta_corrected = b · exp(0.5 · σ² / (1 - φ²))
+
+which is computed in code as  b * (alpha / a)  since:
+
+  alpha / a = exp(log_a + 0.5·σ²/(1-φ²)) / exp(log_a)
+            = exp(0.5 · σ² / (1 - φ²))
+
+
+WHAT WAS THERE BEFORE (AND WHY IT WAS CHANGED)
+------------------------------------------------
+The original code used:
+
+  alpha <- exp(log_a + 0.5 * sigma^2)   # phi term dropped
+
+with a comment: "Recoded to drop phi from the lognormal bias correction."
+
+This underestimates alpha whenever phi > 0, which it always is given the
+AR(1) process error in recruitment. The magnitude of the underestimate is:
+
+  exp(0.5 · sigma^2 · phi^2 / (1 - phi^2))
+
+For the two parameter profiles:
+  Ohlberger profile:  rho = 0.40  (rho is the true process rho; estimated
+  Kuskokwim profile:  rho = 0.593  phi from GLS will be in a similar range)
+
+
+KEY QUESTION FOR THE PAPER
+---------------------------
+Which formula did Ohlberger et al. (2025) use?
+
+  Option A (original code, simpler):
+    alpha = exp(log_a + 0.5 * sigma^2)
+
+  Option B (current code, theoretically correct):
+    alpha = exp(log_a + 0.5 * sigma^2 / (1 - phi^2))
+
+The answer determines whether the current code matches the published results.
+If the paper used Option A, the current code diverges from published results
+and should be reverted for reproducibility.
+
+
+SECTION 7F (DLM -- NOT CHANGED)
+--------------------------------
+The DLM management path uses a different correction (run_model.R line ~713):
+
+  alpha_dlm <- exp(log_a_dlm + 0.5 * sig_dlm^2)
+
+Here sig_dlm = sqrt(V), where V is the observation variance from the DLM's
+state-space model (as returned by dlm::dlmMLE). This is intentionally left
+as 0.5 * sigma^2 WITHOUT the phi correction because the DLM does not have
+an AR(1) residual structure -- temporal autocorrelation in the DLM is
+modeled through state evolution equations (the W matrix), not through
+correlated observation errors. Therefore the observation innovation variance V
+already represents the full observation noise, and no phi-based inflation
+is needed.
+
+
+RELEVANT CODE LOCATIONS
+-----------------------
+  R/run_model.R, line 573:  alpha_sim  (Section 7C, GLS on simulated data)
+  R/run_model.R, line 667:  alpha_obs  (Section 7E, GLS on observed data)
+  R/run_model.R, line 713:  alpha_dlm  (Section 7F, DLM -- unchanged)
+  R/run_model.R, line 760:  alpha_rep_out (Section 7G, GLS on RepOut data)
+
+================================================================================
