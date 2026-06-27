@@ -570,7 +570,9 @@ run_model <- function(config) {
     log_a_sim <- summary(mod_sim)$coefficients[1] ## log-productivity
     a_sim <- exp(log_a_sim) ## productivity (alpha)
     b_sim <- -summary(mod_sim)$coefficients[2] ## density-dependence (beta)
-    alpha_sim <- exp(log_a_sim + 0.5 * sig_sim^2 / (1 - phi_sim^2))
+    phi_sim_s  <- pmin(0.99, pmax(-0.99, phi_sim))        ## clamp: |phi| -> 1 blows up denominator
+    denom_sim  <- max(1 - phi_sim_s^2, 0.1)               ## floor denominator; caps inflation ~1.8-3.5x for typical sigma
+    alpha_sim <- exp(log_a_sim + 0.5 * sig_sim^2 / denom_sim)
     beta_sim  <- b_sim * (alpha_sim / a_sim)
     S_msy_sim <- (1 - gsl::lambert_W0(exp(1 - log(alpha_sim)))) / beta_sim
     U_msy_sim <- (1 - gsl::lambert_W0(exp(1 - log(alpha_sim))))
@@ -664,7 +666,9 @@ run_model <- function(config) {
       log_a_obs <- summary(mod_obs)$coefficients[1]
       a_obs <- exp(log_a_obs)
       b_obs <- -summary(mod_obs)$coefficients[2]
-      alpha_obs <- exp(log_a_obs + 0.5 * sig_obs^2 / (1 - phi_obs^2))
+      phi_obs_s  <- pmin(0.99, pmax(-0.99, phi_obs))
+      denom_obs  <- max(1 - phi_obs_s^2, 0.1)
+      alpha_obs <- exp(log_a_obs + 0.5 * sig_obs^2 / denom_obs)
       beta_obs  <- b_obs * (alpha_obs / a_obs)
       S_msy_obs <- (1 - gsl::lambert_W0(exp(1 - log(alpha_obs)))) / beta_obs
       U_msy_obs <- (1 - gsl::lambert_W0(exp(1 - log(alpha_obs))))
@@ -757,7 +761,9 @@ run_model <- function(config) {
       log_a_rep_out <- summary(mod_rep_out)$coefficients[1]
       a_rep_out <- exp(log_a_rep_out)
       b_rep_out <- -summary(mod_rep_out)$coefficients[2]
-      alpha_rep_out <- exp(log_a_rep_out + 0.5 * sig_rep_out^2 / (1 - phi_rep_out^2))
+      phi_rep_out_s <- pmin(0.99, pmax(-0.99, phi_rep_out))
+      denom_rep_out <- max(1 - phi_rep_out_s^2, 0.1)
+      alpha_rep_out <- exp(log_a_rep_out + 0.5 * sig_rep_out^2 / denom_rep_out)
       beta_rep_out  <- b_rep_out * (alpha_rep_out / a_rep_out)
       sr_rep_out <- data.frame(rbind(c(alpha_rep_out, beta_rep_out, phi_rep_out, sig_rep_out)))
       colnames(sr_rep_out) <- c("alpha","beta","rho","sigma")
