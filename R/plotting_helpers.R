@@ -1,6 +1,3 @@
-#' Internal plotting helpers (not exported)
-#' @keywords internal
-
 #' Helper: Standardize scenario labels and factor orders (internal)
 #' Ensures consistent printed labels across all figures and summaries.
 #' - **factorMSY**: `0.75` → "liberal", `1` → "MSY", `1.5` → "precautionary"

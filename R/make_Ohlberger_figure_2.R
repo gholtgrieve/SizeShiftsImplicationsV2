@@ -63,10 +63,6 @@
 #'   \item \code{outdir}: output directory used
 #' }
 #' @keywords internal
-
-
-#' Make Ohlberger Figure 2 (internal)
-#' @keywords internal
 .make_Ohlberger_figure_2 <- function(data, output_dir = tempdir(),
                                      file_basename = "Figure2",
                                      width_in = 6, height_in = 4) {
