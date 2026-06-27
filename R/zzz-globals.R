@@ -7,5 +7,6 @@ utils::globalVariables(c(
   "n_zero_harvest", "n_obs", "recRec", "obsEsc",
   "scen_num", "scenarios",
   "alpha_N0", "beta_N0", "alpha_EASL", "beta_EASL", "alpha_EMASL", "beta_EMASL",
-  "figure_dir"
+  "figure_dir",
+  "values", "selectivity", "av_harv", "av_ret", "p_over_Rmax50", "p_over_Seq50"
 ))

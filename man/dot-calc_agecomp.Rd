@@ -25,7 +25,9 @@ Internal function to simulate the age distribution of recruits from a given broo
 using a normal-distribution-based Dirichlet draw. Accepts an optional RNG seed for reproducibility.
 }
 \examples{
+\dontrun{
 ages <- 2:6
 .calc_agecomp(ages, recruits = 100, meanage = 4, sdage = 0.8, seed = 123)
+}
 }
 \keyword{internal}

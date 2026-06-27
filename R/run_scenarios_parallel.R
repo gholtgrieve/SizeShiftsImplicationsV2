@@ -285,7 +285,7 @@ run_scenarios <- function(scenarios,
   }
   # ------------------------------------------------------------------------------
 
-  message(sprintf("Completed %d scenarios × %d iterations in %s",
+  message(sprintf("Completed %d scenarios \u00d7 %d iterations in %s",
                   nscen, niter, format(end.time - start.time)))
   invisible(run_out)
 }

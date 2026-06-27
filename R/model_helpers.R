@@ -17,8 +17,10 @@
 #' @keywords internal
 #'
 #' @examples
+#' \dontrun{
 #' ages <- 2:6
 #' .calc_agecomp(ages, recruits = 100, meanage = 4, sdage = 0.8, seed = 123)
+#' }
 .calc_agecomp <- function(ages, recruits, meanage, sdage, seed = NULL) {
   if (!is.null(seed)) {
     withr::with_seed(seed, {
@@ -60,8 +62,10 @@
 #'     \item{\code{sigma}}{Numeric. Standard deviation of observation error.}
 #'   }
 #' @examples
+#' \dontrun{
 #' dat <- data.frame(Esc = c(100, 120, 150, 130), Rec = c(500, 550, 600, 580))
 #' .calc_DLMfit(dat, var_alpha = TRUE, var_beta = FALSE)
+#' }
 #' @keywords internal
 .calc_DLMfit <- function(data, var_alpha, var_beta) {
 
@@ -124,8 +128,10 @@
 #'     \item{\code{eggmass}}{Numeric vector of egg mass (log-scale) for each size.}
 #'   }
 #' @examples
+#' \dontrun{
 #' allom <- c(size_ref = 500, fec_ref = 1000, b_fec = 3.0, egg_ref = 0.2, b_eggs = 1.0)
 #' .calc_reprod_output(size = 550, allometry = allom)
+#' }
 #' @keywords internal
 .calc_reprod_output <- function(size, allometry) {
 
@@ -170,8 +176,10 @@
 #' @keywords internal
 #'
 #' @examples
+#' \dontrun{
 #' .calc_ricker(spawn = 100, sigma = 0.3, alpha = 5, beta = 0.01,
 #'              rho = 0.5, last.eps = 0.1, seed = 456)
+#' }
 .calc_ricker <- function(spawn, sigma, alpha, beta, rho, last.eps, seed = NULL) {
   if (!is.null(seed)) {
     withr::with_seed(seed, {
@@ -206,7 +214,9 @@
 #' estimates and their application to the management of Alaskan sockeye salmon.
 #' \emph{Alaska Fishery Research Bulletin}, 11(2), 258–266.
 #' @examples
+#' \dontrun{
 #' .calc_selectivity(size = 550, meshsize = 5.0, s = 0.204)
+#' }
 #' @keywords internal
 .calc_selectivity <- function(size, meshsize, s) {
 

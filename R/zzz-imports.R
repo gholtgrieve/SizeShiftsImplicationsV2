@@ -5,6 +5,7 @@
 #' definition for ...”.
 #'
 #' @importFrom stats coef dnorm median optim residuals rlnorm rnorm setNames
+#' @importFrom utils tail write.table
 #' @importFrom data.table :=
 #' @keywords internal
 "_PACKAGE"

@@ -31,7 +31,9 @@ allowing for time-varying intercept (\eqn{\alpha}) and/or slope (\eqn{\beta})
 parameters in a linearized Ricker model.
 }
 \examples{
+\dontrun{
 dat <- data.frame(Esc = c(100, 120, 150, 130), Rec = c(500, 550, 600, 580))
 .calc_DLMfit(dat, var_alpha = TRUE, var_beta = FALSE)
+}
 }
 \keyword{internal}

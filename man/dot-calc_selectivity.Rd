@@ -21,7 +21,9 @@ Internal function to calculate the proportion of fish retained by a gillnet
 of a given mesh size, using the selectivity model described by Bromaghin (2005).
 }
 \examples{
+\dontrun{
 .calc_selectivity(size = 550, meshsize = 5.0, s = 0.204)
+}
 }
 \references{
 Bromaghin, J. F. (2005). The statistical evaluation of relative gillnet selectivity

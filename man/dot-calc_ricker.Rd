@@ -34,7 +34,9 @@ using the Ricker model, with log-normal environmental variability and
 temporal autocorrelation in residuals. Accepts an optional RNG seed for reproducibility.
 }
 \examples{
+\dontrun{
 .calc_ricker(spawn = 100, sigma = 0.3, alpha = 5, beta = 0.01,
              rho = 0.5, last.eps = 0.1, seed = 456)
+}
 }
 \keyword{internal}

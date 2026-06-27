@@ -64,7 +64,10 @@ Suggests:
     lintr,
     sessioninfo,
     RhpcBLASctl,
-    digest
+    digest,
+    MASS,
+    stringr,
+    yaml
 VignetteBuilder: knitr
 Config/testthat/edition: 3
 URL: https://gholtgrieve.github.io/SizeShiftsImplicationsV2

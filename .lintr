@@ -1,0 +1,10 @@
+linters: linters_with_defaults(
+    line_length_linter(120L),
+    indentation_linter(indent = 2L),
+    object_name_linter(styles = c("snake_case", "dotted.case")),
+    object_usage_linter = NULL,
+    commented_code_linter = NULL
+  )
+exclusions: list(
+    "tests/testthat"
+  )

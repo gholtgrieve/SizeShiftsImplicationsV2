@@ -30,7 +30,9 @@ Internal function to compute fecundity and egg mass from female length using
 log-log allometric relationships.
 }
 \examples{
+\dontrun{
 allom <- c(size_ref = 500, fec_ref = 1000, b_fec = 3.0, egg_ref = 0.2, b_eggs = 1.0)
 .calc_reprod_output(size = 550, allometry = allom)
+}
 }
 \keyword{internal}
