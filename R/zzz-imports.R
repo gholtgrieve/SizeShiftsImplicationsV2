@@ -6,7 +6,6 @@
 #'
 #' @importFrom stats coef dnorm median optim residuals rlnorm rnorm setNames
 #' @importFrom data.table :=
-#' @importFrom magrittr %>%
 #' @keywords internal
 "_PACKAGE"
 
