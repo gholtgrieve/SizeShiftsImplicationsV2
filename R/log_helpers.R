@@ -151,7 +151,8 @@ fun_ypr_converged <- function(alpha_rep_out, beta_rep_out,
 fun_log_7a_yearloop <- function(
     config, scen_num, iteration, review_i, y_rev, seed,
     PopDat, HarvRates, selectivities_by_age, yindex,
-    sel_fallback_count = 0L, sample_fallback_count = 0L
+    sel_fallback_count = 0L, sample_fallback_count = 0L,
+    overharvest_count  = 0L, harvrate_na_count = 0L
 ) {
   pths <- fun_log_paths(config)
   n_years <- length(yindex)
@@ -193,8 +194,10 @@ fun_log_7a_yearloop <- function(
       Ret_min  = rRet$min,    Ret_max  = rRet$max,
       n_years_selectivity_zeroMax = n_sel_zero_max,
       n_years_sr_nonfinite       = n_sr_nonfinite,
-      sel_fallback_count = as.integer(sel_fallback_count),
-      sample_fallback_count = as.integer(sample_fallback_count)
+      sel_fallback_count    = as.integer(sel_fallback_count),
+      sample_fallback_count = as.integer(sample_fallback_count),
+      overharvest_count     = as.integer(overharvest_count),
+      harvrate_na_count     = as.integer(harvrate_na_count)
     )
   )
   fun_write_row(pths$a, row)
@@ -224,11 +227,10 @@ fun_log_7c_sim_gls <- function(
     config, scen_num, iteration, review_i, y_rev, seed,
     sig_sim, phi_sim, log_a_sim, b_sim, alpha_sim, beta_sim,
     S_msy_sim, U_msy_sim,
-    sim_gls_guard = 0L, sim_gls_reason = NA_character_
+    sim_gls_guard = 0L, sim_gls_reason = NA_character_,
+    phi_guard = 0L, phi_raw = NA_real_, denom_used = NA_real_
   ) {
     pths <- fun_log_paths(config)
-    finite_fit <- all(is.finite(c(sig_sim, phi_sim, log_a_sim, b_sim, alpha_sim, beta_sim,
-                                  S_msy_sim, U_msy_sim)))
     row <- c(
       fun_id_cols(config, scen_num, iteration, review_i, y_rev, seed),
       list(
@@ -236,7 +238,8 @@ fun_log_7c_sim_gls <- function(
         alpha_sim = alpha_sim, beta_sim = beta_sim, S_msy_sim = S_msy_sim, U_msy_sim = U_msy_sim,
         finite_sim_fit = as.integer(all(is.finite(c(sig_sim, phi_sim, log_a_sim, b_sim, alpha_sim, beta_sim, S_msy_sim, U_msy_sim)))),
         sim_gls_guard = as.integer(sim_gls_guard),
-        sim_gls_reason = sim_gls_reason
+        sim_gls_reason = sim_gls_reason,
+        phi_guard = as.integer(phi_guard), phi_raw = phi_raw, denom_used = denom_used
       )
     )
     fun_write_row(pths$c, row)
@@ -274,11 +277,10 @@ fun_log_7e_obs_gls <- function(
     config, scen_num, iteration, review_i, y_rev, seed,
     sig_obs, phi_obs, log_a_obs, b_obs, alpha_obs, beta_obs,
     S_msy_obs, U_msy_obs,
-    obs_gls_guard = 0L, obs_gls_reason = NA_character_
+    obs_gls_guard = 0L, obs_gls_reason = NA_character_,
+    phi_guard = 0L, phi_raw = NA_real_, denom_used = NA_real_
 ) {
   pths <- fun_log_paths(config)
-  finite_fit <- all(is.finite(c(sig_obs, phi_obs, log_a_obs, b_obs, alpha_obs, beta_obs,
-                                S_msy_obs, U_msy_obs)))
   row <- c(
     fun_id_cols(config, scen_num, iteration, review_i, y_rev, seed),
     list(
@@ -286,7 +288,8 @@ fun_log_7e_obs_gls <- function(
       alpha_obs = alpha_obs, beta_obs = beta_obs, S_msy_obs = S_msy_obs, U_msy_obs = U_msy_obs,
       finite_obs_fit = as.integer(all(is.finite(c(sig_obs, phi_obs, log_a_obs, b_obs, alpha_obs, beta_obs, S_msy_obs, U_msy_obs)))),
       obs_gls_guard = as.integer(obs_gls_guard),
-      obs_gls_reason = obs_gls_reason
+      obs_gls_reason = obs_gls_reason,
+      phi_guard = as.integer(phi_guard), phi_raw = phi_raw, denom_used = denom_used
     )
   )
   fun_write_row(pths$e, row)
@@ -328,7 +331,8 @@ fun_log_7g_ypr <- function(
     lower = -10, upper = 2,
     tol = getOption("ssi.ypr_boundary_tol", 1e-4),
     convergence = NULL,
-    ypr_guard = NULL, ypr_guard_reason = NA_character_
+    ypr_guard = NULL, ypr_guard_reason = NA_character_,
+    phi_guard = 0L, phi_raw = NA_real_, denom_used = NA_real_
 ) {
   pths <- fun_log_paths(config)
   near_lower <- is.finite(F_eq) && (F_eq <= (lower + tol))
@@ -356,7 +360,8 @@ fun_log_7g_ypr <- function(
       finite_ypr = as.integer(finite_fit),
       convergence = as.integer(isTRUE(convergence)),
       ypr_guard = as.integer(ypr_guard),
-      ypr_guard_reason = ypr_guard_reason
+      ypr_guard_reason = ypr_guard_reason,
+      phi_guard = as.integer(phi_guard), phi_raw = phi_raw, denom_used = denom_used
     )
   )
   fun_write_row(pths$g, row)

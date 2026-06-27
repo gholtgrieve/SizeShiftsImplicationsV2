@@ -332,8 +332,10 @@ run_model <- function(config) {
     MSY_Goals[yindex] <- msygoal
 
     # --- 7a fallback counters (one per review window) ---
-    sel_fallback_count    <- 0L  # selectivity max invalid -> use uniform selectivity
-    sample_fallback_count <- 0L  # sampling impossible -> zero harvest-by-age this year
+    sel_fallback_count       <- 0L  # selectivity max invalid -> use uniform selectivity
+    sample_fallback_count    <- 0L  # sampling impossible -> zero harvest-by-age this year
+    overharvest_count        <- 0L  # age/sex harvest capped at return (approximation correction)
+    harvrate_na_count        <- 0L  # harvest rate was NA -> reset to 0
     # -----------------------------------------------------
 
 
@@ -365,7 +367,7 @@ run_model <- function(config) {
           harvrate_det <- harvrate * (PopDat$Ret[y] / (PopDat$Ret[y] + round(maxr * 0.1)))
         }
         harvrate_real <- stats::plogis(stats::qlogis(harvrate_det) + impl_err)
-        if (is.na(harvrate_real)) harvrate_real <- 0
+        if (is.na(harvrate_real)) { harvrate_real <- 0; harvrate_na_count <- harvrate_na_count + 1L }
         HarvRates[y] <- harvrate_real
         PopDat$Harv[y] <- round(PopDat$Ret[y] * harvrate_real) ## total harvest
         PopDat$Esc[y]  <- PopDat$Ret[y] - PopDat$Harv[y]       ## escapement
@@ -442,9 +444,9 @@ run_model <- function(config) {
 
         ## avoid over-harvesting of age-by-sex groups (approximation fix)
         index <- which(harv_by_age_sex[y,,1] > ret_by_age_sex[y,,1])
-        if (length(index) >= 1) { harv_by_age_sex[y, index, 1] <- ret_by_age_sex[y, index, 1] }
+        if (length(index) >= 1) { harv_by_age_sex[y, index, 1] <- ret_by_age_sex[y, index, 1]; overharvest_count <- overharvest_count + 1L }
         index <- which(harv_by_age_sex[y,,2] > ret_by_age_sex[y,,2])
-        if (length(index) >= 1) { harv_by_age_sex[y, index, 2] <- ret_by_age_sex[y, index, 2] }
+        if (length(index) >= 1) { harv_by_age_sex[y, index, 2] <- ret_by_age_sex[y, index, 2]; overharvest_count <- overharvest_count + 1L }
       }
 
       ##=======================================## escapement by age and size
@@ -533,8 +535,10 @@ run_model <- function(config) {
 
     fun_log_7a_yearloop(config, scen_num, iter, i, y_rev, seednum,
                         PopDat, HarvRates, selectivities_by_age, yindex,
-                        sel_fallback_count = sel_fallback_count,
-                        sample_fallback_count = sample_fallback_count)
+                        sel_fallback_count    = sel_fallback_count,
+                        sample_fallback_count = sample_fallback_count,
+                        overharvest_count     = overharvest_count,
+                        harvrate_na_count     = harvrate_na_count)
     #################################### end 7a: Year loop for simulation between reviews
 
 
@@ -570,8 +574,9 @@ run_model <- function(config) {
     log_a_sim <- summary(mod_sim)$coefficients[1] ## log-productivity
     a_sim <- exp(log_a_sim) ## productivity (alpha)
     b_sim <- -summary(mod_sim)$coefficients[2] ## density-dependence (beta)
-    phi_sim_s  <- pmin(0.99, pmax(-0.99, phi_sim))        ## clamp: |phi| -> 1 blows up denominator
-    denom_sim  <- max(1 - phi_sim_s^2, 0.1)               ## floor denominator; caps inflation ~1.8-3.5x for typical sigma
+    phi_sim_s      <- pmin(0.99, pmax(-0.99, phi_sim))     ## clamp: |phi| -> 1 blows up denominator
+    denom_sim      <- max(1 - phi_sim_s^2, 0.1)            ## floor denominator; caps inflation ~1.8-3.5x for typical sigma
+    phi_guard_7c   <- as.integer(denom_sim == 0.1)         ## 1 if either guard activated
     alpha_sim <- exp(log_a_sim + 0.5 * sig_sim^2 / denom_sim)
     beta_sim  <- b_sim * (alpha_sim / a_sim)
     S_msy_sim <- (1 - gsl::lambert_W0(exp(1 - log(alpha_sim)))) / beta_sim
@@ -598,7 +603,8 @@ run_model <- function(config) {
     fun_log_7c_sim_gls(config, scen_num, iter, i, y_rev, seednum,
                        sig_sim, phi_sim, log_a_sim, b_sim, alpha_sim, beta_sim,
                        S_msy_sim, U_msy_sim,
-                       sim_gls_guard = as.integer(!sim_ok), sim_gls_reason = sim_reason)
+                       sim_gls_guard = as.integer(!sim_ok), sim_gls_reason = sim_reason,
+                       phi_guard = phi_guard_7c, phi_raw = phi_sim, denom_used = denom_sim)
 
     ##################################################### end 7C:assess MSY goals
 
@@ -666,8 +672,9 @@ run_model <- function(config) {
       log_a_obs <- summary(mod_obs)$coefficients[1]
       a_obs <- exp(log_a_obs)
       b_obs <- -summary(mod_obs)$coefficients[2]
-      phi_obs_s  <- pmin(0.99, pmax(-0.99, phi_obs))
-      denom_obs  <- max(1 - phi_obs_s^2, 0.1)
+      phi_obs_s    <- pmin(0.99, pmax(-0.99, phi_obs))
+      denom_obs    <- max(1 - phi_obs_s^2, 0.1)
+      phi_guard_7e <- as.integer(denom_obs == 0.1)
       alpha_obs <- exp(log_a_obs + 0.5 * sig_obs^2 / denom_obs)
       beta_obs  <- b_obs * (alpha_obs / a_obs)
       S_msy_obs <- (1 - gsl::lambert_W0(exp(1 - log(alpha_obs)))) / beta_obs
@@ -693,7 +700,8 @@ run_model <- function(config) {
       fun_log_7e_obs_gls(config, scen_num, iter, i, y_rev, seednum,
                          sig_obs, phi_obs, log_a_obs, b_obs, alpha_obs, beta_obs,
                          S_msy_obs, U_msy_obs,
-                         obs_gls_guard = as.integer(!obs_ok), obs_gls_reason = obs_reason)
+                         obs_gls_guard = as.integer(!obs_ok), obs_gls_reason = obs_reason,
+                         phi_guard = phi_guard_7e, phi_raw = phi_obs, denom_used = denom_obs)
 
     }
     ############################################### end 7E: Ricker fits to simulated observation data (MSY goals path)
@@ -761,8 +769,9 @@ run_model <- function(config) {
       log_a_rep_out <- summary(mod_rep_out)$coefficients[1]
       a_rep_out <- exp(log_a_rep_out)
       b_rep_out <- -summary(mod_rep_out)$coefficients[2]
-      phi_rep_out_s <- pmin(0.99, pmax(-0.99, phi_rep_out))
-      denom_rep_out <- max(1 - phi_rep_out_s^2, 0.1)
+      phi_rep_out_s  <- pmin(0.99, pmax(-0.99, phi_rep_out))
+      denom_rep_out  <- max(1 - phi_rep_out_s^2, 0.1)
+      phi_guard_7g   <- as.integer(denom_rep_out == 0.1)
       alpha_rep_out <- exp(log_a_rep_out + 0.5 * sig_rep_out^2 / denom_rep_out)
       beta_rep_out  <- b_rep_out * (alpha_rep_out / a_rep_out)
       sr_rep_out <- data.frame(rbind(c(alpha_rep_out, beta_rep_out, phi_rep_out, sig_rep_out)))
@@ -875,7 +884,8 @@ run_model <- function(config) {
                      H_eq = H_eq, S_eq = S_eq, U_eq = U_eq,
                      lower = -10, upper = 2,
                      convergence = ypr_ok,
-                     ypr_guard = as.integer(!ypr_ok), ypr_guard_reason = ypr_reason)
+                     ypr_guard = as.integer(!ypr_ok), ypr_guard_reason = ypr_reason,
+                     phi_guard = phi_guard_7g, phi_raw = phi_rep_out, denom_used = denom_rep_out)
     } ## end YPR branch
     ############################################### end 7G: Yield-per-recruit analysis of simulated observation data (YPR goals path)
 
