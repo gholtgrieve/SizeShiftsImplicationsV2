@@ -1,0 +1,341 @@
+PARALLEL IMPLEMENTATION AUDIT: MSE R Package
+Generated: 2026-06-27
+Auditor: Claude Code (claude-sonnet-4-6)
+
+SUMMARY
+-------
+Backend:              future::multisession
+RNG mechanism:        withr::with_seed(seednum + OFFSET, ...) per-call (see Section B)
+                      future_lapply(..., future.seed = TRUE) — set but unused for model draws
+Issues found:         5
+Tests written:        tests/testthat/test_parallel_consistency.R
+
+Source files audited:
+  R/run_scenarios_parallel.R  (parallel orchestration)
+  R/run_model.R               (per-iteration model logic)
+  R/model_helpers.R           (.auto_workers(), append_ypr_log(), RhpcBLASctl)
+  R/log_helpers.R             (fun_write_row(), PID-shard logging, fun_merge_all_logs())
+  R/zzz.R                     (.onLoad() BLAS thread setup)
+  R/param_configs.R           (Ohlberger and Kuskokwim profiles)
+  R/config_helpers.R          (build_config(), resolve_profile())
+
+
+SECTION A — FUTURE PLAN SETUP
+------------------------------
+
+A.1  Plan save/restore
+  COMPLIANT. run_scenarios_parallel.R:52–53:
+    old_plan <- future::plan()
+    on.exit(future::plan(old_plan), add = TRUE)
+  The plan is saved before being set and restored unconditionally via on.exit (add = TRUE).
+  This correctly handles both normal return and error exit.
+
+A.2  Worker count
+  COMPLIANT. run_scenarios_parallel.R:50 calls .auto_workers(nscen, requested = workers),
+  which in model_helpers.R:425–439 uses:
+    parallelly::availableCores(omit = c("system", "fallback")) - 1L
+  capped by nscen and floored at 1. No hardcoded values. parallel::detectCores() is
+  not used anywhere in the codebase.
+
+A.3  Global options/env vars set before plan()
+  MOSTLY COMPLIANT. Sys.setenv(OMP_NUM_THREADS="1", MKL_NUM_THREADS="1") and
+  RhpcBLASctl::blas_set_num_threads(1) are called at lines 44–47, before
+  future::plan() at line 57. Correct ordering.
+
+  NOTE: options(ssi.log_dir = log_dir) is set at line 66, AFTER future::plan()
+  is activated. Worker sessions do not inherit options() from the main session.
+  This is BENIGN because fun_log_dir() reads config$log_dir first (set explicitly
+  in build_config(), which is captured in the worker's closure), and falls back to
+  the option only if config$log_dir is NULL. Since log_dir is always passed via
+  the closure, the option fallback is never exercised inside workers.
+
+  future.globals.maxSize is not set anywhere. For large exports (config lists
+  times nscen workers), this could hit the 500 MB default. With typical configs
+  this is unlikely to be an issue, but it is unguarded.
+
+A.4  No nested plan() calls
+  COMPLIANT. Neither run_one_scenario (the worker closure) nor run_model() call
+  future::plan() at any point.
+
+
+SECTION B — RNG
+----------------
+
+B.1  future.seed = TRUE call
+  PRESENT. run_scenarios_parallel.R:144–151:
+    future.apply::future_lapply(X = seq_len(nscen), FUN = ..., future.seed = TRUE)
+  The correct call form is used.
+
+B.2  Reproducibility mechanism — IMPORTANT DESIGN NOTE
+  FINDING (MEDIUM — see Issues #1 and #2).
+
+  The package uses a non-standard reproducibility approach: ALL random draws inside
+  run_model() go through withr::with_seed(seednum + OFFSET, { ... }). The seednum
+  for each (scenario j, iteration k) pair is:
+    - sequential:  seeds_k[k]             (run_scenarios_parallel.R:123–125)
+    - parallel:    seeds_k[k] + 10000 * j (same lines)
+
+  This means:
+  (a) Model stochasticity is ENTIRELY controlled by seednum, not by the session's
+      global RNG state. future.seed = TRUE sets up L'Ecuyer-CMRG streams on
+      workers, but those streams are never consumed by model code.
+  (b) Parallel and sequential runs with seed="reproducible" produce DIFFERENT
+      results by design (different seednum values). This is documented in
+      meta$seed_strategy ("per_scenario_iter" vs "CRN") but not in the exported
+      function's @param documentation.
+  (c) Two parallel runs with the same seed="reproducible" argument ARE identical
+      because seednum is a deterministic function of j and k alone.
+  (d) Two sequential runs with the same seed="reproducible" ARE identical for the
+      same reason.
+
+  There is no call to set.seed() before future_lapply(). Because model RNG is
+  entirely withr::with_seed-based, this is safe (global RNG state does not affect
+  output). However, the @param seed documentation should state this explicitly.
+
+B.3  No per-worker set.seed()
+  COMPLIANT. No set.seed() calls inside run_one_scenario or run_model.
+
+B.4  RNG functions in run_model.R
+  COMPLIANT. All stochastic calls use base R functions (rnorm, rlnorm, runif via
+  gtools::rdirichlet, sample) wrapped in withr::with_seed(). No parallel-specific
+  RNG is used. No conflict with L'Ecuyer-CMRG since withr::with_seed saves and
+  restores the global RNG state around each call.
+
+
+SECTION C — GLOBAL STATE AND WORKER ENVIRONMENT
+------------------------------------------------
+
+C.1  Object capture in worker closure
+  COMPLIANT (with caveat). run_one_scenario is a closure defined inside
+  run_scenarios(). It correctly captures: seeds_k, log_dir, params, parallel.
+  These are all plain R values (no <<-, no reference semantics). The progressor
+  p is passed as an explicit argument and designed for cross-process use.
+
+  CAVEAT: parallel (logical scalar) is captured from the parent scope rather than
+  passed as an argument to run_one_scenario. future's static-analysis global
+  export should detect and export this, but it is one more implicit dependency.
+
+C.2  Package availability on workers — FINDING (see Issue #3)
+  run_one_scenario calls resolve_profile(), build_config(), run_model(), and
+  all fun_log_7*() helpers — all internal SizeShiftsImplicationsV2 functions.
+  future_lapply() does not pass future.packages = "SizeShiftsImplicationsV2".
+  future's static analysis will attempt to detect and export these, but the
+  absence of an explicit future.packages argument is a reliability risk if:
+  - The package has C extensions that cannot be fully serialized
+  - The package is not attached (e.g., called as pkg:::fn() without library())
+  - future's global detection misses a transitively needed package
+
+  In practice (package installed and loaded), this works. But future.packages
+  would make the dependency explicit and remove a class of failure modes.
+
+C.3  Cross-worker option interference
+  No hazard found. Environment variables (OMP_NUM_THREADS, MKL_NUM_THREADS) are
+  set before workers spawn and inherited by child processes — appropriate behavior.
+  No options() are set inside worker code that could bleed across workers.
+
+
+SECTION D — BLAS THREAD CONTROL
+---------------------------------
+
+D.1  BLAS limit set before plan()
+  COMPLIANT. RhpcBLASctl::blas_set_num_threads(1) is called:
+    (a) In .onLoad() (zzz.R:25) — before any user code runs
+    (b) In run_scenarios() at line 47 — before future::plan() at line 57
+  Correct ordering in both locations.
+
+D.2  Graceful degradation without RhpcBLASctl
+  COMPLIANT. Both call sites are guarded:
+    if (requireNamespace("RhpcBLASctl", quietly = TRUE)) { ... }
+  The absence of RhpcBLASctl produces no error or warning. OMP_NUM_THREADS and
+  MKL_NUM_THREADS env vars are still set as a fallback via Sys.setenv().
+
+D.3  BLAS thread count restoration — FINDING (see Issue #4)
+  BLAS threads are set to 1 in .onLoad() and again in run_scenarios() but are
+  NEVER restored to their original value after the parallel run completes.
+  Similarly, OMP_NUM_THREADS and MKL_NUM_THREADS remain at "1" for the rest of
+  the session after run_scenarios() returns. This is acceptable given that
+  .onLoad() already sets these to 1, so the user's environment was at 1 from
+  package load time. But if a user calls RhpcBLASctl::blas_set_num_threads(N)
+  before run_scenarios() to restore threading, the call inside run_scenarios()
+  silently resets it back to 1 with no restoration.
+
+
+SECTION E — FILELOCK CSV LOGGING
+----------------------------------
+
+E.1  Locking pattern
+  NOT USED IN PRIMARY CODE PATH. The filelock-based writer is append_ypr_log()
+  in model_helpers.R:445–480. However, run_model.R does NOT call append_ypr_log().
+  Instead, all logging goes through fun_write_row() in log_helpers.R:43–53, which
+  uses the PID-shard approach exclusively.
+
+  In fun_write_row(): no filelock, no lock file, no on.exit unlock. This is safe
+  because each worker has a unique PID and writes only to its own shard file.
+
+  append_ypr_log() (model_helpers.R:449–479) does implement the filelock pattern
+  correctly:
+    lk <- filelock::lock(lock_path, timeout = Inf)
+    on.exit(filelock::unlock(lk), add = TRUE)
+    [write]
+  This ensures unlock fires even if the write throws. But since this function is
+  not called in the current code path, it is effectively dead code.
+
+E.2  PID-shard mechanism
+  COMPLIANT. fun_write_row() (log_helpers.R:43–53) writes to:
+    <log_dir>/<stem>.pid<PID>.csv
+  using Sys.getpid(). Each multisession worker runs in a separate OS process with
+  a unique PID, so shard files are collision-free by construction.
+
+  After future_lapply completes, run_scenarios_parallel.R:283–285 calls
+  fun_merge_all_logs(log_dir, remove_shards = TRUE), which:
+    (a) Finds all <stem>.pid*.csv shards
+    (b) Union-harmonizes column sets across shards (handles schema differences)
+    (c) row-binds and writes a single final CSV
+    (d) Removes shard files if remove_shards = TRUE
+  The merge call is guarded by exists("fun_merge_all_logs", mode = "function"),
+  which is always TRUE when the package is loaded.
+
+E.3  Log path construction
+  COMPLIANT. log_dir is constructed as file.path(output_dir, "logs") where
+  output_dir defaults to file.path(here::here(), "outputs") — an absolute path.
+  log_dir is passed explicitly to build_config() and stored in config$log_dir.
+  fun_log_dir() reads config$log_dir first, so workers always use the absolute
+  path captured in the closure, not a relative path.
+
+
+SECTION F — ERROR HANDLING INSIDE future_lapply
+-------------------------------------------------
+
+F.1  Error propagation approach
+  FINDING (see Issue #5). The worker closure wraps run_model() in:
+    out[[k]] <- try(run_model(cfg), silent = TRUE)
+  This catches all errors from run_model() and returns them as try-error objects.
+  future_lapply never sees unhandled worker errors (because they are caught by
+  try()), so future's condition-based error propagation is bypassed.
+
+  In the collection loop (run_scenarios_parallel.R:205):
+    if (!inherits(mod.out, "try-error") && !is.null(mod.out)) { ... }
+  Failed iterations produce NULLs in all result sublists. No warning is issued,
+  no count is kept, no log entry is made when a try-error is silently dropped.
+
+F.2  Silent failure patterns
+  The try(..., silent = TRUE) pattern at run_scenarios_parallel.R:137 suppresses
+  the error message from failed run_model() calls. The error object is stored
+  momentarily in out[[k]] but then discarded silently in the collection loop.
+  There is no facility to report, count, or inspect which (j, k) pairs failed.
+
+
+SECTION G — RESULT COLLECTION AND AGGREGATION
+----------------------------------------------
+
+G.1  Result ordering
+  COMPLIANT. future_lapply preserves input order. The collection loop iterates
+  for (j in seq_len(nscen)) over the ordered result list, and names are set from
+  scen$scen_num in the same order. No re-sorting occurs.
+
+G.2  Aggregation location
+  COMPLIANT. run_model() returns raw per-iteration data (para, sr_sim, data, obs,
+  etc.) as a list. All aggregation (computing summary statistics, means, percent
+  changes) happens either inside run_model() itself (post-loop summaries in
+  Section 8) or outside in user-space after run_scenarios() returns. No
+  cross-iteration aggregation is performed inside workers.
+
+G.3  Shared mutable state
+  COMPLIANT. No R environments, reference classes, or R6 objects are passed to
+  workers. The config lists passed to run_model() are plain R lists (copy-on-
+  modify semantics). Mutations inside workers are isolated.
+
+
+ISSUES REQUIRING ACTION
+------------------------
+
+ISSUE #1 — MEDIUM
+  Location: R/run_scenarios_parallel.R:144
+  Description: future.seed = TRUE is set but provides no reproducibility benefit.
+    All model RNG goes through withr::with_seed(seednum + OFFSET, ...). The
+    L'Ecuyer-CMRG streams set up by future.seed are never consumed by model code.
+    This creates a misleading impression that reproducibility is guaranteed by
+    future's RNG machinery, when it is actually guaranteed by seednum arithmetic.
+  Recommended fix: Either (a) document clearly in @details that reproducibility is
+    seednum-based and future.seed = TRUE is a safety net for any un-seeded draw
+    that might be added in the future; or (b) consider removing future.seed = TRUE
+    if the intent is to rely solely on withr::with_seed. Option (a) is safer.
+
+ISSUE #2 — MEDIUM
+  Location: R/run_scenarios_parallel.R:9 (documentation), lines 121–125 (code)
+  Description: The seed strategy diverges between parallel and sequential modes:
+    parallel:   seednum = seeds_k[k] + 10000 * j
+    sequential: seednum = seeds_k[k]
+    This is intentional (comment says "Abandon CRN when parallel") but is not
+    documented in the exported function's @param or @details. Users who switch
+    between parallel = TRUE and parallel = FALSE will see different numerical
+    results and may falsely attribute this to non-reproducibility bugs.
+  Recommended fix: Add @details to run_scenarios() explaining that seed="reproducible"
+    guarantees within-backend reproducibility but parallel and sequential runs
+    will differ numerically (different seednum offsets). Document meta$seed_strategy
+    as the authoritative record.
+
+ISSUE #3 — MEDIUM
+  Location: R/run_scenarios_parallel.R:144 (future_lapply call)
+  Description: future_lapply() does not pass future.packages. The worker closure
+    calls resolve_profile(), build_config(), run_model(), and all fun_log_7*()
+    helpers, which are internal SizeShiftsImplicationsV2 functions. future's
+    static analysis is expected to detect these, but explicit specification is
+    more robust, especially in environments where the package is used via :::
+    or is loaded but not attached.
+  Recommended fix:
+    future.apply::future_lapply(
+      X            = seq_len(nscen),
+      FUN          = function(j) { ... },
+      future.seed  = TRUE,
+      future.packages = "SizeShiftsImplicationsV2"
+    )
+
+ISSUE #4 — LOW
+  Location: R/run_scenarios_parallel.R:44–47, R/zzz.R:21–26
+  Description: OMP_NUM_THREADS, MKL_NUM_THREADS, and BLAS thread count are set to
+    1 but never restored after run_scenarios() returns. If a user sets BLAS threads
+    to N > 1 before calling run_scenarios(), those settings will be silently reset
+    to 1 and not restored.
+  Recommended fix: Save the original OMP_NUM_THREADS and blas_get_num_threads()
+    value before setting them, and restore via on.exit(). Low priority since
+    .onLoad() already enforces 1 thread from package load.
+
+ISSUE #5 — LOW
+  Location: R/run_scenarios_parallel.R:137
+  Description: try(run_model(cfg), silent = TRUE) suppresses error messages from
+    failed iterations. Failed iterations are silently dropped in the collection
+    loop with no warning, no count, and no log entry. Users have no way to know
+    that some (scenario, iteration) pairs failed without inspecting the raw results
+    for NULL entries.
+  Recommended fix: After the collection loop, count NULLs per scenario and emit a
+    message or warning if any failures occurred:
+      n_fail <- sum(vapply(out[[k_list]], is.null, logical(1)))
+      if (n_fail > 0) warning(sprintf("%d/%d iterations failed in scenario %d", ...))
+    Also consider removing silent = TRUE so errors are visible in the log.
+
+
+ITEMS REQUIRING HUMAN DECISION
+--------------------------------
+
+DECISION 1: Should future.seed = TRUE be retained?
+  Currently set but unused (see Issue #1). Retaining it is a safe default in case
+  any future code change introduces un-seeded draws. Removing it would make the
+  intent clearer but loses the safety net. Recommendation: RETAIN with updated docs.
+
+DECISION 2: Should the parallel/sequential seednum difference be a user-visible param?
+  The +10000*j offset in parallel mode breaks CRN (Common Random Numbers) across
+  the scenario dimension. This was a deliberate design choice to avoid cross-worker
+  RNG collisions, but it means parallel and sequential results cannot be directly
+  compared. Options:
+  (a) Keep current behavior; document it clearly (Recommended).
+  (b) Expose a crn_offset parameter so users can control the offset.
+  (c) Remove the offset and rely on future.seed = TRUE to provide independent
+      streams per worker. This would require removing all withr::with_seed calls
+      and using global RNG instead — a significant architectural change.
+
+DECISION 3: Should append_ypr_log() (model_helpers.R:445–480) be removed?
+  It implements filelock-based logging but is not called anywhere in the package.
+  It appears to be dead code from a previous logging architecture superseded by
+  the PID-shard approach in log_helpers.R. Confirm it is safe to remove before
+  next release.
