@@ -55,8 +55,7 @@ Imports:
     withr (>= 2.5.0),
     future,
     future.apply,
-    parallelly,
-    filelock
+    parallelly
 Suggests:
     testthat (>= 3.2.0),
     knitr,
@@ -64,6 +63,8 @@ Suggests:
     lintr,
     sessioninfo,
     RhpcBLASctl,
+    filelock,
+    mockery,
     digest,
     MASS,
     stringr,

@@ -1,0 +1,42 @@
+PARALLEL INFRASTRUCTURE FIXES APPLIED
+SizeShiftsImplicationsV2
+Applied: 2026-06-28
+
+FIX 1: R/run_scenarios_parallel.R:197-200 — Added future.packages = "SizeShiftsImplicationsV2"
+  to future_lapply() so the package is explicitly loaded on every worker instead
+  of relying on future's implicit static-analysis export.
+
+FIX 2: R/run_scenarios_parallel.R:1-50 (roxygen block) — Added @param seed with
+  backend-divergence warning and @details "Reproducibility" section documenting
+  that withr::with_seed(seednum,...) is the actual reproducibility mechanism,
+  the +10000*j parallel offset causes sequential/parallel results to differ, and
+  future.seed = TRUE is retained as a safety net only.
+
+FIX 3a: R/run_scenarios_parallel.R:185 — Changed try(run_model(cfg), silent = TRUE)
+  to silent = FALSE so run_model() error messages are routed to the console
+  rather than suppressed.
+
+FIX 3b: R/run_scenarios_parallel.R:271-277 — Added per-scenario failure count
+  and warning after the inner iteration loop; emits a warning to the user when
+  any try-error results are silently dropped during result collection.
+
+FIX 4: R/run_scenarios_parallel.R:72-92 — Added save/restore of OMP_NUM_THREADS,
+  MKL_NUM_THREADS, and RhpcBLASctl BLAS thread count before they are forced to 1,
+  using on.exit(add = TRUE) so prior settings are restored even if the function
+  errors; restoration only occurs when parallel = TRUE (inside use_future block).
+
+FIX 5: R/model_helpers.R:445-480 (deleted) — Removed append_ypr_log() dead-code
+  function (filelock-based logging superseded by PID-shard approach in
+  log_helpers.R; no call sites found anywhere in R/, tests/, or NAMESPACE).
+  DESCRIPTION: moved filelock from Imports to Suggests (no longer used in
+  production code path); added mockery to Suggests (used in test_parallel_consistency.R).
+
+devtools::check(): PASS — 0 errors | 0 warnings | 0 notes
+  (vignettes skipped — no Pandoc in check environment, pre-existing condition)
+  Duration: 18m 58s (sequential-only; parallel tests gated by SSI_TEST_PARALLEL env var)
+
+test_parallel_consistency.R: PASS (sequential tests only — 13 tests ran, 7 skipped)
+  Parallel tests (Tests 1-parallel, 2, 4, 5-parallel, 7-parallel) require
+  SSI_TEST_PARALLEL=1 to run; see CLAUDE.md "never enable parallel in tests".
+  To run the full suite locally:
+    SSI_TEST_PARALLEL=1 Rscript -e "devtools::test(filter='parallel_consistency')"

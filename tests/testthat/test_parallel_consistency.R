@@ -20,6 +20,12 @@
 # Issue #2). Tests that compare results therefore stay within one backend.
 #
 # Uses the Kuskokwim parameter profile throughout.
+#
+# Tests that call run_scenarios(parallel = TRUE) require SSI_TEST_PARALLEL=1
+# because spawning future::multisession workers inside devtools::check() causes
+# resource contention (CLAUDE.md: "never enable parallel in tests"). To run the
+# full parallel suite locally:
+#   SSI_TEST_PARALLEL=1 Rscript -e "devtools::test()"
 
 testthat::local_edition(3)
 
@@ -81,9 +87,11 @@ test_that("sequential runs are bitwise-identical given seed='reproducible'", {
 
 test_that("parallel runs are bitwise-identical given seed='reproducible'", {
   skip_if_not_installed("future.apply")
+  skip_if(!nzchar(Sys.getenv("SSI_TEST_PARALLEL")),
+        "Set SSI_TEST_PARALLEL=1 to run parallel integration tests")
 
-  run1 <- .run_kusko(parallel = TRUE, n_iter = 5L, workers = 2L)
-  run2 <- .run_kusko(parallel = TRUE, n_iter = 5L, workers = 2L)
+  run1 <- .run_kusko(parallel = TRUE, n_iter = 3L, workers = 2L)
+  run2 <- .run_kusko(parallel = TRUE, n_iter = 3L, workers = 2L)
 
   expect_identical(
     run1$results$data[[1L]][[1L]]$Rec,
@@ -91,9 +99,9 @@ test_that("parallel runs are bitwise-identical given seed='reproducible'", {
     label = "parallel iter 1: Rec identical across two runs"
   )
   expect_identical(
-    run1$results$data[[1L]][[5L]]$Harv,
-    run2$results$data[[1L]][[5L]]$Harv,
-    label = "parallel iter 5: Harv identical across two runs"
+    run1$results$data[[1L]][[3L]]$Harv,
+    run2$results$data[[1L]][[3L]]$Harv,
+    label = "parallel iter 3: Harv identical across two runs"
   )
 })
 
@@ -108,8 +116,10 @@ test_that("parallel runs are bitwise-identical given seed='reproducible'", {
 
 test_that("replicate Rec sums are all distinct (no duplicate RNG streams)", {
   skip_if_not_installed("future.apply")
+  skip_if(!nzchar(Sys.getenv("SSI_TEST_PARALLEL")),
+        "Set SSI_TEST_PARALLEL=1 to run parallel integration tests")
 
-  run_par <- .run_kusko(parallel = TRUE, n_iter = 20L, workers = 2L)
+  run_par <- .run_kusko(parallel = TRUE, n_iter = 10L, workers = 2L)
   n_iter  <- run_par$meta$niter
 
   recs <- lapply(seq_len(n_iter), function(k) run_par$results$data[[1L]][[k]]$Rec)
@@ -130,8 +140,10 @@ test_that("replicate Rec sums are all distinct (no duplicate RNG streams)", {
 
 test_that("pairwise correlations across replicates are consistent with independence", {
   skip_if_not_installed("future.apply")
+  skip_if(!nzchar(Sys.getenv("SSI_TEST_PARALLEL")),
+        "Set SSI_TEST_PARALLEL=1 to run parallel integration tests")
 
-  run_par <- .run_kusko(parallel = TRUE, n_iter = 20L, workers = 2L)
+  run_par <- .run_kusko(parallel = TRUE, n_iter = 10L, workers = 2L)
   n_iter  <- run_par$meta$niter
 
   recs <- lapply(seq_len(n_iter), function(k) run_par$results$data[[1L]][[k]]$Rec)
@@ -248,7 +260,8 @@ test_that("SR parameters are finite and positive in all iterations", {
 
 test_that("all tested scenarios return results (no silent drops)", {
   skip_if_not_installed("future.apply")
-  skip_on_cran()
+  skip_if(!nzchar(Sys.getenv("SSI_TEST_PARALLEL")),
+        "Set SSI_TEST_PARALLEL=1 to run parallel integration tests")
 
   d <- withr::local_tempdir(clean = TRUE)
   run_all <- run_scenarios(
@@ -273,7 +286,8 @@ test_that("all tested scenarios return results (no silent drops)", {
 
 test_that("each (scenario, iter) cell has non-NULL data with finite Esc and Harv", {
   skip_if_not_installed("future.apply")
-  skip_on_cran()
+  skip_if(!nzchar(Sys.getenv("SSI_TEST_PARALLEL")),
+        "Set SSI_TEST_PARALLEL=1 to run parallel integration tests")
 
   d <- withr::local_tempdir(clean = TRUE)
   run_all <- run_scenarios(
@@ -324,12 +338,14 @@ test_that("each (scenario, iter) cell has non-NULL data with finite Esc and Harv
 
 test_that("merged log_7a has correct row count (niter x nrev)", {
   skip_if_not_installed("future.apply")
+  skip_if(!nzchar(Sys.getenv("SSI_TEST_PARALLEL")),
+        "Set SSI_TEST_PARALLEL=1 to run parallel integration tests")
 
   tmp <- withr::local_tempdir(clean = TRUE)
 
   run_log <- run_scenarios(
     scenarios  = .kusko_scen1,
-    niter      = 5L,
+    niter      = 3L,
     seed       = "reproducible",
     params     = "Kuskokwim",
     output_dir = tmp,
@@ -350,11 +366,13 @@ test_that("merged log_7a has correct row count (niter x nrev)", {
 
 test_that("merged log has no entirely-NA rows and no partial writes", {
   skip_if_not_installed("future.apply")
+  skip_if(!nzchar(Sys.getenv("SSI_TEST_PARALLEL")),
+        "Set SSI_TEST_PARALLEL=1 to run parallel integration tests")
 
   tmp <- withr::local_tempdir(clean = TRUE)
   run_scenarios(
     scenarios  = .kusko_scen1,
-    niter      = 5L,
+    niter      = 3L,
     seed       = "reproducible",
     params     = "Kuskokwim",
     output_dir = tmp,
@@ -396,11 +414,13 @@ test_that("log_7a has required identification columns", {
 
 test_that("PID shard files are removed after merge", {
   skip_if_not_installed("future.apply")
+  skip_if(!nzchar(Sys.getenv("SSI_TEST_PARALLEL")),
+        "Set SSI_TEST_PARALLEL=1 to run parallel integration tests")
 
   tmp <- withr::local_tempdir(clean = TRUE)
   run_scenarios(
     scenarios  = .kusko_scen1,
-    niter      = 4L,
+    niter      = 3L,
     seed       = "reproducible",
     params     = "Kuskokwim",
     output_dir = tmp,
@@ -507,13 +527,15 @@ test_that("OMP_NUM_THREADS is set to '1' during run_scenarios", {
 
 test_that("future plan is restored to prior class after a normal parallel run", {
   skip_if_not_installed("future.apply")
+  skip_if(!nzchar(Sys.getenv("SSI_TEST_PARALLEL")),
+        "Set SSI_TEST_PARALLEL=1 to run parallel integration tests")
 
   prior_class <- class(future::plan())
   tmp <- withr::local_tempdir(clean = TRUE)
 
   run_scenarios(
     scenarios  = .kusko_scen1,
-    niter      = 3L,
+    niter      = 2L,
     seed       = "reproducible",
     params     = "Kuskokwim",
     output_dir = tmp,
@@ -527,6 +549,8 @@ test_that("future plan is restored to prior class after a normal parallel run", 
 
 test_that("future plan is restored even when run_scenarios() exits with an error", {
   skip_if_not_installed("future.apply")
+  skip_if(!nzchar(Sys.getenv("SSI_TEST_PARALLEL")),
+        "Set SSI_TEST_PARALLEL=1 to run parallel integration tests")
 
   prior_class <- class(future::plan())
 

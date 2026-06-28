@@ -19,7 +19,12 @@ run_scenarios(
 
 \item{niter}{Integer. Iterations per scenario. Default 1000.}
 
-\item{seed}{"reproducible" (1:niter) or "random" (sampled seeds).}
+\item{seed}{Character. \code{"reproducible"} seeds each (scenario, iteration) pair
+deterministically (base seeds 1, 2, ..., niter); two runs with the \strong{same
+backend} (both parallel or both sequential) will produce bitwise-identical
+results. \code{"random"} draws random base seeds so results differ between runs.
+\strong{Parallel and sequential runs with the same \code{seed} value will differ
+numerically} due to different seednum offsets; see Details.}
 
 \item{params}{Profile name ("Ohlberger","Kuskokwim") or full list for \code{\link[=build_config]{build_config()}}.}
 
@@ -37,4 +42,31 @@ for the main R session / operating system.}
 High-level interface to run the simulation across a set of scenarios and
 Monte Carlo iterations. Selects scenarios, seeds iterations (CRN across
 scenarios), runs the model (optionally in parallel), and saves outputs.
+}
+\details{
+\subsection{Reproducibility}{
+
+All model random draws are wrapped in \code{withr::with_seed(seednum, ...)} where
+\code{seednum} is a deterministic function of the scenario index \code{j} and iteration
+index \code{k}:
+\itemize{
+\item \strong{Sequential} (\code{parallel = FALSE}): \code{seednum = seeds_k[k]}
+\item \strong{Parallel} (\code{parallel = TRUE}): \code{seednum = seeds_k[k] + 10000 * j}
+}
+
+Using \code{seed = "reproducible"} guarantees that two runs with the \strong{same
+backend} produce bitwise-identical results. Parallel and sequential runs
+with the same \code{seed} value \strong{will differ numerically} because the seednum
+offsets differ. This is intentional: the \code{+10000 * j} offset in parallel
+mode ensures no two workers share an RNG subsequence even when base seeds
+overlap across scenarios.
+
+\code{future.seed = TRUE} is retained as a safety net for any future code changes
+that introduce un-seeded draws outside \code{withr::with_seed}; it does not
+currently contribute to model reproducibility.
+
+The seed strategy for each run is recorded in \code{meta$seed_strategy}
+(\code{"CRN"} for sequential, \code{"per_scenario_iter"} for parallel) and the base
+seeds are stored in \code{meta$seed_list}.
+}
 }

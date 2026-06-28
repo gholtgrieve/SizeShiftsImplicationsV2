@@ -6,7 +6,12 @@
 #'
 #' @param scenarios See [.select_scenarios()] (e.g., "all", filter string, or IDs).
 #' @param niter Integer. Iterations per scenario. Default 1000.
-#' @param seed "reproducible" (1:niter) or "random" (sampled seeds).
+#' @param seed Character. `"reproducible"` seeds each (scenario, iteration) pair
+#'   deterministically (base seeds 1, 2, ..., niter); two runs with the **same
+#'   backend** (both parallel or both sequential) will produce bitwise-identical
+#'   results. `"random"` draws random base seeds so results differ between runs.
+#'   **Parallel and sequential runs with the same `seed` value will differ
+#'   numerically** due to different seednum offsets; see Details.
 #' @param params Profile name ("Ohlberger","Kuskokwim") or full list for [build_config()].
 #' @param output_dir Directory to write outputs (default: here()/outputs).
 #' @param parallel Logical. Run scenarios in parallel. Default = TRUE.
@@ -15,6 +20,30 @@
 #'   (the default), the function uses \code{parallelly::availableCores(omit=c("system","fallback")) - 1},
 #'   capped at the number of scenarios and never below 1. This leaves one core free
 #'   for the main R session / operating system.
+#'
+#' @details
+#' ## Reproducibility
+#'
+#' All model random draws are wrapped in `withr::with_seed(seednum, ...)` where
+#' `seednum` is a deterministic function of the scenario index `j` and iteration
+#' index `k`:
+#' * **Sequential** (`parallel = FALSE`): `seednum = seeds_k[k]`
+#' * **Parallel** (`parallel = TRUE`): `seednum = seeds_k[k] + 10000 * j`
+#'
+#' Using `seed = "reproducible"` guarantees that two runs with the **same
+#' backend** produce bitwise-identical results. Parallel and sequential runs
+#' with the same `seed` value **will differ numerically** because the seednum
+#' offsets differ. This is intentional: the `+10000 * j` offset in parallel
+#' mode ensures no two workers share an RNG subsequence even when base seeds
+#' overlap across scenarios.
+#'
+#' `future.seed = TRUE` is retained as a safety net for any future code changes
+#' that introduce un-seeded draws outside `withr::with_seed`; it does not
+#' currently contribute to model reproducibility.
+#'
+#' The seed strategy for each run is recorded in `meta$seed_strategy`
+#' (`"CRN"` for sequential, `"per_scenario_iter"` for parallel) and the base
+#' seeds are stored in `meta$seed_list`.
 #' @export
 run_scenarios <- function(scenarios,
                           niter      = 1000,
@@ -39,6 +68,25 @@ run_scenarios <- function(scenarios,
   use_future <- isTRUE(parallel) && requireNamespace("future.apply", quietly = TRUE)
 
   if (use_future) {
+    # Save current thread settings so they can be restored when the function exits.
+    old_omp  <- Sys.getenv("OMP_NUM_THREADS", unset = NA_character_)
+    old_mkl  <- Sys.getenv("MKL_NUM_THREADS", unset = NA_character_)
+    old_blas <- if (requireNamespace("RhpcBLASctl", quietly = TRUE)) {
+      RhpcBLASctl::blas_get_num_threads()
+    } else {
+      NULL
+    }
+    on.exit({
+      if (is.na(old_omp)) Sys.unsetenv("OMP_NUM_THREADS") else
+        Sys.setenv(OMP_NUM_THREADS = old_omp)
+      if (is.na(old_mkl)) Sys.unsetenv("MKL_NUM_THREADS") else
+        Sys.setenv(MKL_NUM_THREADS = old_mkl)
+      if (!is.null(old_blas) &&
+          requireNamespace("RhpcBLASctl", quietly = TRUE)) {
+        RhpcBLASctl::blas_set_num_threads(old_blas)
+      }
+    }, add = TRUE)
+
     # Avoid BLAS over-subscription when forking/spawning parallel R sessions
     # (This is safe to do repeatedly; packages can still override if they want)
     Sys.setenv(OMP_NUM_THREADS = "1", MKL_NUM_THREADS = "1")
@@ -134,7 +182,7 @@ run_scenarios <- function(scenarios,
         )
 
         # run_model() should use withr::with_seed(seednum, { ... }) internally
-        out[[k]] <- try(run_model(cfg), silent = TRUE)
+        out[[k]] <- try(run_model(cfg), silent = FALSE)
         p() # tick progress once per iteration
       }
       out
@@ -147,7 +195,8 @@ run_scenarios <- function(scenarios,
           scen_row <- scen[j, , drop = FALSE]
           run_one_scenario(scen_row, j, niter, seeds_k, params, p)
         },
-        future.seed = TRUE
+        future.seed     = TRUE,
+        future.packages = "SizeShiftsImplicationsV2"
       )
     } else {
       # Fallback to sequential if no parallel workers available
@@ -217,6 +266,14 @@ run_scenarios <- function(scenarios,
         MSY_Goals.list[[j]][[k]]   <- mod.out$MSY_Goals
         impl_errors.list[[j]][[k]] <- mod.out$impl_errors
       }
+    }
+
+    n_fail_j <- sum(vapply(res_iter, inherits, logical(1L), "try-error"))
+    if (n_fail_j > 0L) {
+      warning(sprintf(
+        "Scenario %d: %d of %d iteration(s) failed and were excluded from results.",
+        j, n_fail_j, length(res_iter)
+      ), call. = FALSE)
     }
   }
 
