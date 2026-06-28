@@ -72,7 +72,7 @@ run_scenarios <- function(scenarios,
     old_omp  <- Sys.getenv("OMP_NUM_THREADS", unset = NA_character_)
     old_mkl  <- Sys.getenv("MKL_NUM_THREADS", unset = NA_character_)
     old_blas <- if (requireNamespace("RhpcBLASctl", quietly = TRUE)) {
-      RhpcBLASctl::blas_get_num_threads()
+      RhpcBLASctl::blas_get_num_procs()
     } else {
       NULL
     }
